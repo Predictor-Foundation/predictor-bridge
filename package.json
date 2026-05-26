@@ -1,0 +1,41 @@
+{
+  "name": "predictor-bridge",
+  "version": "1.0.0",
+  "description": "Ethereum bridging contract for Predictor Network",
+  "author": "Predictor Foundation",
+  "license": "GPL-3.0-only",
+  "scripts": {
+    "format": "npm run pretty:fix && npm run pretty:sol && npm run pretty:docs",
+    "pretty:fix": "prettier --config ./.prettierrc.json --write \"**/*.{js,json}\"",
+    "pretty:sol": "npx prettier --write --plugin=prettier-plugin-solidity contracts/**/*.sol",
+    "pretty:docs": "prettier --config ./.prettierrc.json --write README.md",
+    "coverage": "npx hardhat test --coverage",
+    "test": "npx hardhat test",
+    "gas": "npx hardhat test --gas-stats",
+    "deploy:relayer-token": "npx hardhat run deploy/deploy-relayer-token.js --network sepolia",
+    "deploy:dummy-erc20": "npx hardhat run deploy/deploy-dummy-erc20.js --network sepolia",
+    "deploy:bridge:dev": "cross-env BRIDGE_ENV=dev npx hardhat run deploy/deploy-bridge.js --network sepolia",
+    "deploy:bridge:testnet": "cross-env BRIDGE_ENV=testnet npx hardhat run deploy/deploy-bridge.js --network sepolia",
+    "deploy:bridge:testnet:resettable": "cross-env BRIDGE_ENV=testnet BRIDGE_CONTRACT=PredictorBridgeResettable npx hardhat run deploy/deploy-bridge.js --network sepolia",
+    "deploy:bridge:mainnet": "cross-env BRIDGE_ENV=mainnet npx hardhat run deploy/deploy-bridge.js --network mainnet",
+    "deploy:implementation:dev": "cross-env BRIDGE_ENV=dev npx hardhat run deploy/deploy-implementation.js --network sepolia",
+    "deploy:implementation:testnet": "cross-env BRIDGE_ENV=testnet npx hardhat run deploy/deploy-implementation.js --network sepolia",
+    "deploy:implementation:mainnet": "cross-env BRIDGE_ENV=mainnet npx hardhat run deploy/deploy-implementation.js --network mainnet"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ledger": "^3.0.4",
+    "@nomicfoundation/hardhat-toolbox-mocha-ethers": "^3.0.4",
+    "cross-env": "^10.1.0",
+    "dotenv": "^17.4.2",
+    "hardhat": "^3.3.0",
+    "keccak256": "^1.0.6",
+    "merkletreejs": "^0.6.0",
+    "prettier": "^3.8.3",
+    "prettier-plugin-solidity": "^2.3.1"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.6.1",
+    "@openzeppelin/contracts-upgradeable": "^5.6.1"
+  },
+  "type": "module"
+}
