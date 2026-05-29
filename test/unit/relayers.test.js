@@ -334,5 +334,40 @@ describe('PredictorBridge relayer tests', function () {
       const balanceAfterLower = await bridge.relayerBalance(relayer1.address);
       expect(balanceAfterLower).to.be.greaterThan(balanceBeforeLower);
     });
+
+    it('preserves relayer balance and emits LogRefundFailed when ETH is rejected by a relayer contract', async () => {
+      const RejectingRelayer = await ethers.getContractFactory('MockETHRejectingRelayer');
+      const rejectingRelayer = await RejectingRelayer.deploy();
+
+      await bridge.registerRelayer(rejectingRelayer.target);
+
+      const seedAmount = 50n * ONE_USD;
+      const gasCost = 1_000_000n;
+
+      await usdc.transfer(user.address, seedAmount);
+
+      const permit = await getPermit(usdc, user, bridge, seedAmount, ethers.MaxUint256);
+
+      const tx = await rejectingRelayer.relayerLift(bridge.target, gasCost, seedAmount, user.address, permit.v, permit.r, permit.s, true);
+
+      const receipt = await tx.wait();
+
+      const parsed = receipt.logs
+        .filter(log => log.address === bridge.target)
+        .map(log => {
+          try {
+            return bridge.interface.parseLog(log);
+          } catch (_) {
+            return null;
+          }
+        })
+        .filter(Boolean);
+
+      const refundFailed = parsed.find(log => log.name === 'LogRefundFailed');
+      expect(refundFailed).to.not.equal(undefined);
+
+      const balanceAfter = await bridge.relayerBalance(rejectingRelayer.target);
+      expect(balanceAfter).to.be.greaterThan(1);
+    });
   });
 });

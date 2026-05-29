@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 import './interfaces/IChainalysis.sol';
 import './interfaces/IChainlinkV3Aggregator.sol';
@@ -60,6 +60,9 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
   address public immutable UNISWAP_V3_USDC_WETH_POOL;
   address public immutable CHAINALYSIS_SANCTIONS;
   address public immutable USDC;
+  /**
+   * @dev USDT support accepts token-level freeze/blacklist risk inherent to USDT.
+   */
   address public immutable USDT;
   address public immutable WETH;
 
@@ -190,6 +193,8 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
 
   /**
    * @dev Claims funds for the recipient specified in a valid lower proof.
+   * No Ethereum-level sanctions check applied here, exit eligibility is
+   * controlled on the Predictor network prior to lower proof generation.
    *
    * @param lowerProof Encoded lower data followed by author confirmations.
    */
@@ -286,7 +291,9 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
   }
 
   /**
-   * @dev Lifts tokens using an ERC-2612 permit instead of prior approval.
+   * @dev Uses ERC-2612 permit as provided by the token.
+   * A permit may be consumed directly on the token before this call executes, causing this function to revert.
+   * This is accepted permit behaviour and the caller can retry with a fresh signature.
    *
    * @param token Token to lift.
    * @param t2PubKey Destination T2 public key.
@@ -355,6 +362,7 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
 
   /**
    * @dev Registers a relayer for sponsored prediction market USDC bridge operations.
+   * Relayers are permissioned service operators registered by the owner.
    *
    * @param relayer Relayer address to register.
    */
@@ -367,6 +375,10 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
 
   /**
    * @dev Lets a registered relayer lift USDC on behalf of a user and deduct its tx cost from the bridged amount.
+   * Relayer permits intentionally use a non-expiring deadline since relayers are permissioned EOAs operated as a service.
+   * The permit approves only this bridge for the fixed amount and is nonce-protected by USDC.
+   * The estimated relayer fee derived from gasCost is presented to users by the relayer service off-chain.
+   * gasCost is estimated by the relayer service to closely match expected network execution cost.
    *
    * @param gasCost Relayer-supplied gas usage figure for reimbursement.
    * @param amount Amount approved by the user.
@@ -407,7 +419,8 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
 
   /**
    * @dev Lets a registered relayer complete a USDC lower for the recipient specified in the proof and deduct its tx cost from the lowered amount.
-   *
+   * The estimated relayer fee derived from gasCost is presented to users by the relayer service off-chain.
+   * gasCost is estimated by the relayer service to closely match expected network execution cost.
    *
    * @param gasCost Relayer-supplied gas usage figure for reimbursement.
    * @param lowerProof Encoded lower data followed by author confirmations.
@@ -619,7 +632,9 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
 
   /**
    * @dev Returns the current Wei value of one USDC using the configured Chainlink feed.
-   *
+   * Lightweight oracle read used only for permissioned relayer fee estimation.
+   * Freshness/health monitoring is performed off-chain by the relayer service.
+   * Assumes the configured USDC/ETH feed and USDC token use the expected deployment decimals.
    * @return price Wei-denominated value of 1 USDC.
    */
   function usdcEth() public view returns (uint256 price) {
@@ -633,8 +648,10 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
   // ============================================================
 
   /**
-   * @dev Internal callback entry point used to convert accumulated relayer USDC fees into ETH.
+   * @dev Internal callback entry point used to convert accrued relayer USDC fees to ETH.
    * Can only be called by this contract.
+   * Uses a fixed slippage guard for converting accrued relayer USDC fees to ETH.
+   * Refund failure does not affect bridging operations and preserves the relayer balance via _attemptRelayerRefund.
    *
    * @param relayer Relayer receiving the refund.
    * @param balance USDC balance to convert.
@@ -648,9 +665,7 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
       if (ethAmount < (uint256(balance) * usdcEth() * 987) / 1000) revert();
       IWETH9(WETH).withdraw(ethAmount);
       (bool success, ) = relayer.call{ value: ethAmount }('');
-      assembly {
-        pop(success)
-      }
+      if (!success) revert();
     }
   }
 
