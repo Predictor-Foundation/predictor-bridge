@@ -103,6 +103,21 @@ describe('PredictorBridge relayer tests', function () {
       expect(await bridge.relayerBalance(relayer1.address)).to.be.greaterThan(1);
     });
 
+    it('lets relayerLift continue when permit was already consumed and allowance exists', async () => {
+      const amount = 10n * ONE_USD;
+      const permit = await getPermit(usdc, user, bridge, amount, ethers.MaxUint256);
+      const bridgeBalBefore = await usdc.balanceOf(bridge.target);
+
+      await usdc.connect(user).permit(user.address, bridge.target, amount, ethers.MaxUint256, permit.v, permit.r, permit.s);
+
+      expect(await usdc.allowance(user.address, bridge.target)).to.equal(amount);
+
+      await expect(bridge.connect(relayer1).relayerLift(1n, amount, user.address, permit.v, permit.r, permit.s, false)).to.emit(bridge, 'LogLiftedToPredictionMarket');
+
+      expect(await usdc.balanceOf(bridge.target)).to.equal(bridgeBalBefore + amount);
+      expect(await bridge.relayerBalance(relayer1.address)).to.be.greaterThan(1);
+    });
+
     it('rejects non-relayer caller', async () => {
       const amount = 1n * ONE_USD;
       const permit = await getPermit(usdc, user, bridge, amount, ethers.MaxUint256);
@@ -117,7 +132,10 @@ describe('PredictorBridge relayer tests', function () {
       const amount = 1n * ONE_USD;
       const permit = await getPermit(usdc, user, bridge, amount, ethers.MaxUint256);
 
-      await expect(bridge.connect(relayer1).relayerLift(1n, amount, otherAccount.address, permit.v, permit.r, permit.s, false)).to.revert();
+      await expect(bridge.connect(relayer1).relayerLift(1n, amount, otherAccount.address, permit.v, permit.r, permit.s, false)).to.be.revertedWithCustomError(
+        bridge,
+        'PermitAllowanceTooLow'
+      );
     });
 
     it('rejects amount too low', async () => {

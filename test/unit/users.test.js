@@ -63,6 +63,18 @@ describe('PredictorBridge user tests', function () {
         .withArgs(token.target, t2PubKey, amount);
     });
 
+    it('lifts via permitLift when permit was already consumed and allowance exists', async () => {
+      const permit = await getPermit(token, owner, bridge, amount);
+
+      await token.permit(owner.address, bridge.target, amount, permit.deadline, permit.v, permit.r, permit.s);
+
+      expect(await token.allowance(owner.address, bridge.target)).to.equal(amount);
+
+      await expect(bridge.permitLift(token.target, t2PubKey, amount, permit.deadline, permit.v, permit.r, permit.s))
+        .to.emit(bridge, 'LogLifted')
+        .withArgs(token.target, t2PubKey, amount);
+    });
+
     it('lifts via predictionMarketLift with USDC', async () => {
       await usdc.approve(bridge.target, amount);
       await expect(bridge.predictionMarketLift(usdc.target, amount))
@@ -95,6 +107,18 @@ describe('PredictorBridge user tests', function () {
 
     it('lifts via predictionMarketPermitLift', async () => {
       const permit = await getPermit(usdc, owner, bridge, amount);
+      await expect(bridge.predictionMarketPermitLift(amount, permit.deadline, permit.v, permit.r, permit.s))
+        .to.emit(bridge, 'LogLiftedToPredictionMarket')
+        .withArgs(usdc.target, await bridge.deriveT2PublicKey(owner.address), amount);
+    });
+
+    it('lifts via predictionMarketPermitLift when permit was already consumed and allowance exists', async () => {
+      const permit = await getPermit(usdc, owner, bridge, amount);
+
+      await usdc.permit(owner.address, bridge.target, amount, permit.deadline, permit.v, permit.r, permit.s);
+
+      expect(await usdc.allowance(owner.address, bridge.target)).to.equal(amount);
+
       await expect(bridge.predictionMarketPermitLift(amount, permit.deadline, permit.v, permit.r, permit.s))
         .to.emit(bridge, 'LogLiftedToPredictionMarket')
         .withArgs(usdc.target, await bridge.deriveT2PublicKey(owner.address), amount);
@@ -151,6 +175,15 @@ describe('PredictorBridge user tests', function () {
       await bridge.pause();
       const permit = await getPermit(token, owner, bridge, amount);
       await expect(bridge.permitLift(token.target, t2PubKey, amount, permit.deadline, permit.v, permit.r, permit.s)).to.be.revertedWithCustomError(bridge, 'EnforcedPause');
+    });
+
+    it('rejects permitLift when permit fails and allowance is too low', async () => {
+      const permit = await getPermit(token, owner, bridge, amount);
+
+      await expect(bridge.permitLift(token.target, t2PubKey, amount, permit.deadline, 27, randomBytes32(), randomBytes32())).to.be.revertedWithCustomError(
+        bridge,
+        'PermitAllowanceTooLow'
+      );
     });
 
     it('rejects predictionMarketLift when paused', async () => {

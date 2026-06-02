@@ -113,6 +113,7 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
   error NotAnAuthor(); // 0x157b0512
   error NotEnoughAuthors(); // 0x3a6a875c
   error PermissionDenied(); // 0x1e092104
+  error PermitAllowanceTooLow(); //0x06b0b401
   error RelayerOnly(); // 0x7378cebb
   error RelayerAlreadyRegistered();
   error RelayerNotRegistered();
@@ -292,8 +293,8 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
 
   /**
    * @dev Uses ERC-2612 permit as provided by the token.
-   * A permit may be consumed directly on the token before this call executes, causing this function to revert.
-   * This is accepted permit behaviour and the caller can retry with a fresh signature.
+   * If the permit has already been consumed but allowance was set for this bridge,
+   * the lift can continue using the existing allowance.
    *
    * @param token Token to lift.
    * @param t2PubKey Destination T2 public key.
@@ -313,7 +314,7 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
     bytes32 s
   ) external whenNotPaused nonReentrant checkAddress(msg.sender) {
     if (t2PubKey == bytes32(0)) revert InvalidT2Key();
-    IERC20Permit(token).permit(msg.sender, address(this), amount, deadline, v, r, s);
+    _tryPermit(token, msg.sender, amount, deadline, v, r, s);
     emit LogLifted(token, t2PubKey, _lift(msg.sender, token, amount));
   }
 
@@ -338,7 +339,7 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
    * @param s Signature s value.
    */
   function predictionMarketPermitLift(uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external whenNotPaused nonReentrant checkAddress(msg.sender) {
-    IERC20Permit(USDC).permit(msg.sender, address(this), amount, deadline, v, r, s);
+    _tryPermit(USDC, msg.sender, amount, deadline, v, r, s);
     emit LogLiftedToPredictionMarket(USDC, deriveT2PublicKey(msg.sender), _lift(msg.sender, USDC, amount));
   }
 
@@ -403,7 +404,7 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
     uint256 txCost = (gasCost * tx.gasprice) / usdcEth();
     if (txCost > amount) revert AmountTooLow();
 
-    IERC20Permit(USDC).permit(user, address(this), amount, type(uint256).max, v, r, s);
+    _tryPermit(USDC, user, amount, type(uint256).max, v, r, s);
     IERC20(USDC).safeTransferFrom(user, address(this), amount);
 
     unchecked {
@@ -881,6 +882,22 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
     bytes32 t1PubKeyHash = keccak256(t1PubKey);
     bytes32 structHash = keccak256(abi.encode(REMOVE_AUTHOR_TYPEHASH, t2PubKey, t1PubKeyHash, expiry, t2TxId));
     return keccak256(abi.encodePacked(EIP712_PREFIX, _domainSeparator(), structHash));
+  }
+
+  function _tryPermit(
+    address token,
+    address owner_,
+    uint256 amount,
+    uint256 deadline,
+    uint8 v,
+    bytes32 r,
+    bytes32 s
+  ) private {
+    try IERC20Permit(token).permit(owner_, address(this), amount, deadline, v, r, s) {} catch {}
+
+    if (IERC20(token).allowance(owner_, address(this)) < amount) {
+      revert PermitAllowanceTooLow();
+    }
   }
 
   function _verifyConfirmations(bool isLower, bytes32 msgHash, bytes calldata confirmations) private {
