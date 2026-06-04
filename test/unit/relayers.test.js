@@ -101,6 +101,44 @@ describe('PredictorBridge relayer tests', function () {
     });
   });
 
+  describe('usdcEth', function () {
+    it('returns the validated USDC/ETH price scaled for USDC base units', async () => {
+      const answer = 3_000_000_000_000_000n;
+      await feed.setLatestAnswer(answer);
+      expect(await bridge.usdcEth()).to.equal(answer / 1_000_000n);
+    });
+
+    it('rejects zero oracle answer', async () => {
+      await feed.setLatestAnswer(0);
+      await expect(bridge.usdcEth()).to.be.revertedWithCustomError(bridge, 'InvalidOracleData');
+    });
+
+    it('rejects negative oracle answer', async () => {
+      await feed.setLatestAnswer(-1);
+      await expect(bridge.usdcEth()).to.be.revertedWithCustomError(bridge, 'InvalidOracleData');
+    });
+
+    it('rejects incomplete oracle round with zero updatedAt', async () => {
+      const block = await ethers.provider.getBlock('latest');
+      await feed.setLatestRoundData(10, 3_000_000_000_000_000n, block.timestamp, 0, 10);
+      await expect(bridge.usdcEth()).to.be.revertedWithCustomError(bridge, 'InvalidOracleData');
+    });
+
+    it('rejects incomplete oracle round when answeredInRound is older than roundId', async () => {
+      const block = await ethers.provider.getBlock('latest');
+      await feed.setLatestRoundData(10, 3_000_000_000_000_000n, block.timestamp, block.timestamp, 9);
+      await expect(bridge.usdcEth()).to.be.revertedWithCustomError(bridge, 'InvalidOracleData');
+    });
+
+    it('rejects stale oracle answer', async () => {
+      const block = await ethers.provider.getBlock('latest');
+      const staleUpdatedAt = BigInt(block.timestamp) - 25n * 60n * 60n - 1n;
+
+      await feed.setLatestRoundData(10, 3_000_000_000_000_000n, Number(staleUpdatedAt), Number(staleUpdatedAt), 10);
+      await expect(bridge.usdcEth()).to.be.revertedWithCustomError(bridge, 'InvalidOracleData');
+    });
+  });
+
   describe('relayerLift', function () {
     beforeEach(async () => {
       await bridge.registerRelayer(relayer1.address);

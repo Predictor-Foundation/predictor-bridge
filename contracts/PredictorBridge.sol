@@ -35,6 +35,7 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
   bytes32 private constant PUBLISH_ROOT_TYPEHASH = keccak256('PublishRoot(bytes32 rootHash,uint256 expiry,uint32 t2TxId)');
   bytes32 private constant REMOVE_AUTHOR_TYPEHASH = keccak256('RemoveAuthor(bytes32 t2PubKey,bytes t1PubKey,uint256 expiry,uint32 t2TxId)');
 
+  uint256 private constant CHAINLINK_USDC_ETH_MAX_AGE = 25 hours;
   uint256 private constant ETH_SIG_LENGTH = 65;
   uint256 private constant LOWER_DATA_LENGTH = 20 + 32 + 20 + 4 + 32 + 8;
   uint256 private constant MAX_AUTHORS = 255;
@@ -43,6 +44,7 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
   uint160 private constant MIN_SQRT_RATIO = 4295128739;
   uint256 private constant OWNER_REVERT_LOWER_DELAY = 3 days;
   uint256 private constant T2_TOKEN_LIMIT = type(uint128).max;
+  uint256 private constant USDC_ETH_PRICE_SCALE = 1e6;
 
   int8 private constant TX_SUCCEEDED = 1;
   int8 private constant TX_PENDING = 0;
@@ -102,6 +104,7 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
   error BadConfirmations(); // 0x409c8aac
   error CannotChangeT2Key(bytes32); // 0x140c6815
   error InvalidCaller(); // 0x48f5c3ed
+  error InvalidOracleData(); // 0xf1bccc72
   error InvalidProof(); // 0x09bde339
   error InvalidT1Key(); // 0x4b0218a8
   error InvalidT2Key(); // 0xf4fc87a4
@@ -646,14 +649,18 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
 
   /**
    * @dev Returns the current Wei value of one USDC using the configured Chainlink feed.
-   * Lightweight oracle read used only for permissioned relayer fee estimation.
-   * Freshness/health monitoring is performed off-chain by the relayer service.
-   * Assumes the configured USDC/ETH feed and USDC token use the expected deployment decimals.
-   * @return price Wei-denominated value of 1 USDC.
+   * Uses latestRoundData() and validates positive answer, complete round and freshness.
+   * @return price Wei-denominated value of 1 USDC per USDC base unit.
    */
   function usdcEth() public view returns (uint256 price) {
+    (uint80 roundId, int256 answer, , uint256 updatedAt, uint80 answeredInRound) = IChainlinkV3Aggregator(CHAINLINK_USDC_ETH_FEED).latestRoundData();
+
     unchecked {
-      price = uint256(IChainlinkV3Aggregator(CHAINLINK_USDC_ETH_FEED).latestAnswer()) / 1e6;
+      if (answer <= 0 || updatedAt == 0 || block.timestamp - updatedAt > CHAINLINK_USDC_ETH_MAX_AGE || answeredInRound < roundId) {
+        revert InvalidOracleData();
+      }
+
+      price = uint256(answer) / USDC_ETH_PRICE_SCALE;
     }
   }
 
