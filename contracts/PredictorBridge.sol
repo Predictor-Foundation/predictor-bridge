@@ -115,8 +115,10 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
   error PermissionDenied(); // 0x1e092104
   error PermitAllowanceTooLow(); //0x06b0b401
   error RelayerOnly(); // 0x7378cebb
-  error RelayerAlreadyRegistered();
-  error RelayerNotRegistered();
+  error RefundBelowMin(); // 0x92f0d7a3
+  error RefundRejected(); // 0x6e76c783
+  error RelayerAlreadyRegistered(); // 0xdc619d07
+  error RelayerNotRegistered(); // 0x57bb83ee
   error RootHashIsUsed(); // 0x2c8a3b6e
   error T1AddressInUse(address); // 0x78f22dd1
   error T2KeyInUse(bytes32); // 0x02f3935c
@@ -674,10 +676,10 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
 
     unchecked {
       uint256 ethAmount = uint256(amount1 * -1);
-      if (ethAmount < (uint256(balance) * usdcEth() * 987) / 1000) revert();
+      if (ethAmount < (uint256(balance) * usdcEth() * 987) / 1000) revert RefundBelowMin();
       IWETH9(WETH).withdraw(ethAmount);
       (bool success, ) = relayer.call{ value: ethAmount }('');
-      if (!success) revert();
+      if (!success) revert RefundRejected();
     }
   }
 
@@ -727,9 +729,9 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
   function _attemptRelayerRefund(int256 balance) private {
     try this.refundRelayerCallback(msg.sender, balance - 1) {
       relayerBalance[msg.sender] = 1;
-    } catch {
+    } catch (bytes memory reason) {
       relayerBalance[msg.sender] = balance;
-      emit LogRefundFailed(msg.sender, balance);
+      emit LogRefundFailed(msg.sender, balance, reason);
     }
   }
 

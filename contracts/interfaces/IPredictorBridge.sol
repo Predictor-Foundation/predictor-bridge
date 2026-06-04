@@ -26,7 +26,7 @@ interface IPredictorBridge {
   event LogLowerClaimed(uint32 indexed lowerId);
   event LogLowerReverted(address indexed token, bytes32 indexed t2PubKey, address indexed originalRecipient, uint256 amount, uint32 lowerId);
   event LogRelayerDeregistered(address indexed relayer);
-  event LogRefundFailed(address indexed relayer, int256 balance);
+  event LogRefundFailed(address indexed relayer, int256 balance, bytes reason);
   event LogRelayerLowered(uint32 indexed lowerId, uint256 amount);
   event LogRelayerRegistered(address indexed relayer);
   event LogRootPublished(bytes32 indexed rootHash, uint32 indexed t2TxId);
