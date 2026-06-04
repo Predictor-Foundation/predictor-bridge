@@ -13,7 +13,15 @@ contract PredictorBridgeResettable is PredictorBridge {
 
   uint32 public resetNonce;
 
-  constructor(address feed, address pool, address sanctions, address usdc, address usdt, address weth) PredictorBridge(feed, pool, sanctions, usdc, usdt, weth) {}
+  constructor(
+    address feed,
+    address pool,
+    address sanctions,
+    address prd,
+    address usdc,
+    address usdt,
+    address weth
+  ) PredictorBridge(feed, pool, sanctions, prd, usdc, usdt, weth) {}
 
   /**
    * @dev Wipes per-run sparse bridge state. Lower ids and T2 tx ids are issued consecutively, so the

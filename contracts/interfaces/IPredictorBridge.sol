@@ -40,6 +40,7 @@ interface IPredictorBridge {
   function deregisterRelayer(address relayer) external;
   function initialize(address[] calldata t1Addresses, bytes32[] calldata t1PubKeysLHS, bytes32[] calldata t1PubKeysRHS, bytes32[] calldata t2PubKeys, address owner_) external;
   function lift(address token, bytes32 t2PubKey, uint256 amount) external;
+  function liftPRD(bytes32 t2PubKey, uint256 amount) external;
   function pause() external;
   function publishRoot(bytes32 rootHash, uint256 expiry, uint32 t2TxId, bytes calldata confirmations) external;
   function permitLift(address token, bytes32 t2PubKey, uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external;

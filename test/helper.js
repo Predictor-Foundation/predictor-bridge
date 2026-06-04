@@ -296,7 +296,8 @@ async function deployFixture({ numAuthors = 6, contractName = 'PredictorBridge' 
 
   const feed = await Feed.deploy();
   const sanctions = await Sanctions.deploy();
-  const token = await Token.deploy('Token', 'TOK', 10, owner.address, 1_000_000_000_000_000_000_000n);
+  const prd = await Token.deploy('Predictor', 'PRD', 10, owner.address, 1_000_000_000_000_000_000_000n);
+  const token = await Token.deploy('Token', 'TOK', 18, owner.address, 1_000_000_000_000_000_000_000_000_000n);
   const usdc = await Token.deploy('USD Coin', 'USDC', 6, owner.address, 10_000_000_000_000n);
   const usdt = await Token.deploy('Tether', 'USDT', 6, owner.address, 10_000_000_000_000n);
   const weth = await WETH.deploy();
@@ -306,7 +307,7 @@ async function deployFixture({ numAuthors = 6, contractName = 'PredictorBridge' 
   await weth.deposit({ value: ethers.parseEther('100') });
   await weth.transfer(pool.target, ethers.parseEther('100'));
 
-  const implementation = await PredictorBridge.deploy(feed.target, pool.target, sanctions.target, usdc.target, usdt.target, weth.target);
+  const implementation = await PredictorBridge.deploy(feed.target, pool.target, sanctions.target, prd.target, usdc.target, usdt.target, weth.target);
 
   await implementation.waitForDeployment();
 
@@ -333,6 +334,7 @@ async function deployFixture({ numAuthors = 6, contractName = 'PredictorBridge' 
     owner,
     pool,
     sanctions,
+    prd,
     token,
     usdc,
     usdt,

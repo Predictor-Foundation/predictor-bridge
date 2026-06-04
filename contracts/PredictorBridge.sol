@@ -59,6 +59,7 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
   address public immutable CHAINLINK_USDC_ETH_FEED;
   address public immutable UNISWAP_V3_USDC_WETH_POOL;
   address public immutable CHAINALYSIS_SANCTIONS;
+  address public immutable PRD;
   address public immutable USDC;
   /**
    * @dev USDT support accepts token-level freeze/blacklist risk inherent to USDT.
@@ -105,7 +106,6 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
   error InvalidT1Key(); // 0x4b0218a8
   error InvalidT2Key(); // 0xf4fc87a4
   error InvalidToken(); // 0xc1ab6dc1
-  error LegacyLower(); // 0x9e79b036
   error LiftFailed(); // 0xb19ed519
   error LiftLimitHit(); // 0xc36d2830
   error LowerIsUsed(); // 0x24c1c1ce
@@ -128,14 +128,15 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
   // Constructor
   // ============================================================
 
-  constructor(address feed, address pool, address sanctions, address usdc, address usdt, address weth) {
-    if (feed == address(0) || pool == address(0) || sanctions == address(0) || usdc == address(0) || usdt == address(0) || weth == address(0)) {
+  constructor(address feed, address pool, address sanctions, address prd, address usdc, address usdt, address weth) {
+    if (feed == address(0) || pool == address(0) || prd == address(0) || sanctions == address(0) || usdc == address(0) || usdt == address(0) || weth == address(0)) {
       revert AddressIsZero();
     }
 
     CHAINLINK_USDC_ETH_FEED = feed;
     UNISWAP_V3_USDC_WETH_POOL = pool;
     CHAINALYSIS_SANCTIONS = sanctions;
+    PRD = prd;
     USDC = usdc;
     USDT = usdt;
     WETH = weth;
@@ -255,7 +256,7 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
   }
 
   /**
-   * @dev Lifts approved tokens from the caller to the specified T2 recipient.
+   * @dev Lifts any approved ERC20 tokens from the caller to the specified T2 recipient.
    *
    * @param token Token to lift.
    * @param t2PubKey Destination T2 public key.
@@ -264,6 +265,17 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
   function lift(address token, bytes32 t2PubKey, uint256 amount) external whenNotPaused nonReentrant checkAddress(msg.sender) {
     if (t2PubKey == bytes32(0)) revert InvalidT2Key();
     emit LogLifted(token, t2PubKey, _lift(msg.sender, token, amount));
+  }
+
+  /**
+   * @dev Lifts approved PRD tokens from the caller to the specified T2 recipient.
+   *
+   * @param t2PubKey Destination T2 public key.
+   * @param amount Amount requested for lifting.
+   */
+  function liftPRD(bytes32 t2PubKey, uint256 amount) external whenNotPaused nonReentrant checkAddress(msg.sender) {
+    if (t2PubKey == bytes32(0)) revert InvalidT2Key();
+    emit LogLifted(PRD, t2PubKey, _lift(msg.sender, PRD, amount));
   }
 
   /**
@@ -501,7 +513,6 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
 
     bool canRevert = msg.sender == recipient || (msg.sender == owner() && block.timestamp > t2Timestamp + OWNER_REVERT_LOWER_DELAY);
     if (!canRevert) revert PermissionDenied();
-    if (t2Sender == bytes32(0)) revert LegacyLower();
 
     _processLower(token, amount, recipient, lowerId, t2Sender, t2Timestamp, lowerProof);
     emit LogLowerReverted(token, t2Sender, recipient, amount, lowerId);
@@ -884,15 +895,7 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
     return keccak256(abi.encodePacked(EIP712_PREFIX, _domainSeparator(), structHash));
   }
 
-  function _tryPermit(
-    address token,
-    address owner_,
-    uint256 amount,
-    uint256 deadline,
-    uint8 v,
-    bytes32 r,
-    bytes32 s
-  ) private {
+  function _tryPermit(address token, address owner_, uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s) private {
     try IERC20Permit(token).permit(owner_, address(this), amount, deadline, v, r, s) {} catch {}
 
     if (IERC20(token).allowance(owner_, address(this)) < amount) {

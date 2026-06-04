@@ -112,7 +112,8 @@ The bridge operates in two directions:
 - Chainalysis Sanctions\
 `CHAINALYSIS_SANCTIONS`: [0x40C57923924B5c5c5455c48D93317139ADDaC8fb](https://etherscan.io/address/0x40C57923924B5c5c5455c48D93317139ADDaC8fb)
 
-- Tokens  
+- Tokens
+  - `PRD`: [0x50Ce6df72cFFCA748c2D9Cf80F1af693C36d176c](https://etherscan.io/address/0x50Ce6df72cFFCA748c2D9Cf80F1af693C36d176c)  
   - `USDC`: [0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48](https://etherscan.io/address/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48)
   - `USDT`: [0xdAC17F958D2ee523a2206206994597C13D831ec7](https://etherscan.io/address/0xdAC17F958D2ee523a2206206994597C13D831ec7)
   - `WETH`: [0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2](https://etherscan.io/address/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2)
