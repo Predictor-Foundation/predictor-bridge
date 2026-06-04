@@ -276,7 +276,7 @@ describe('PredictorBridge relayer tests', function () {
     });
 
     it('rejects direct refundRelayerCallback from external caller', async () => {
-      await expect(bridge.connect(owner).refundRelayerCallback(relayer1.address, 1)).to.be.revertedWithCustomError(bridge, 'InvalidCaller');
+      await expect(bridge.connect(owner).refundRelayerCallback(relayer1.address, 1, 0)).to.be.revertedWithCustomError(bridge, 'InvalidCaller');
     });
 
     it('rejects direct uniswap callback from non-pool', async () => {

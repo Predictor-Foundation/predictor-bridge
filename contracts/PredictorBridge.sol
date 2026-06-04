@@ -126,6 +126,8 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
   error T1AddressInUse(address); // 0x78f22dd1
   error T2KeyInUse(bytes32); // 0x02f3935c
   error TooManyAuthors(); // 0x7e8db19d
+  error TransferFailed(); // 0x90b8ec18
+  error TransferFromFailed(); // 0x7939f424
   error TxIdIsUsed(); // 0x7edd16f0
   error WindowExpired(); // 0x7bbfb6fe
 
@@ -418,18 +420,19 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
     int256 balance = relayerBalance[msg.sender];
     if (balance < 1) revert RelayerOnly();
 
-    uint256 txCost = (gasCost * tx.gasprice) / usdcEth();
+    uint256 usdcEthPrice = usdcEth();
+    uint256 txCost = (gasCost * tx.gasprice) / usdcEthPrice;
     if (txCost > amount) revert AmountTooLow();
 
     _tryPermit(USDC, user, amount, type(uint256).max, v, r, s);
-    IERC20(USDC).safeTransferFrom(user, address(this), amount);
+    if (!IERC20(USDC).transferFrom(user, address(this), amount)) revert TransferFromFailed();
 
     unchecked {
       amount -= txCost;
       balance += int256(txCost);
     }
 
-    if (triggerRefund) _attemptRelayerRefund(balance);
+    if (triggerRefund) _attemptRelayerRefund(balance, usdcEthPrice);
     else relayerBalance[msg.sender] = balance;
 
     emit LogLiftedToPredictionMarket(USDC, deriveT2PublicKey(user), amount);
@@ -451,7 +454,8 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
     (address token, uint256 amount, address user, uint32 lowerId, bytes32 t2Sender, uint64 t2Timestamp) = _extractLowerData(lowerProof);
     if (token != USDC) revert InvalidToken();
 
-    uint256 txCost = (gasCost * tx.gasprice) / usdcEth();
+    uint256 usdcEthPrice = usdcEth();
+    uint256 txCost = (gasCost * tx.gasprice) / usdcEthPrice;
     if (txCost > amount) revert AmountTooLow();
 
     _processLower(token, amount, user, lowerId, t2Sender, t2Timestamp, lowerProof);
@@ -461,9 +465,9 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
       balance += int256(txCost);
     }
 
-    IERC20(USDC).safeTransfer(user, amount);
+    if (!IERC20(USDC).transfer(user, amount)) revert TransferFailed();
 
-    if (triggerRefund) _attemptRelayerRefund(balance);
+    if (triggerRefund) _attemptRelayerRefund(balance, usdcEthPrice);
     else relayerBalance[msg.sender] = balance;
 
     emit LogRelayerLowered(lowerId, amount);
@@ -677,13 +681,13 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
    * @param relayer Relayer receiving the refund.
    * @param balance USDC balance to convert.
    */
-  function refundRelayerCallback(address relayer, int256 balance) external {
+  function refundRelayerCallback(address relayer, int256 balance, uint256 usdcEthPrice) external {
     if (msg.sender != address(this)) revert InvalidCaller();
     (, int256 amount1) = IUniswapV3Pool(UNISWAP_V3_USDC_WETH_POOL).swap(address(this), true, balance, MIN_SQRT_RATIO + 1, '');
 
     unchecked {
       uint256 ethAmount = uint256(amount1 * -1);
-      if (ethAmount < (uint256(balance) * usdcEth() * 987) / 1000) revert RefundBelowMin();
+      if (ethAmount < (uint256(balance) * usdcEthPrice * 987) / 1000) revert RefundBelowMin();
       IWETH9(WETH).withdraw(ethAmount);
       (bool success, ) = relayer.call{ value: ethAmount }('');
       if (!success) revert RefundRejected();
@@ -733,8 +737,8 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
     _setAuthor(id);
   }
 
-  function _attemptRelayerRefund(int256 balance) private {
-    try this.refundRelayerCallback(msg.sender, balance - 1) {
+  function _attemptRelayerRefund(int256 balance, uint256 usdcEthPrice) private {
+    try this.refundRelayerCallback(msg.sender, balance - 1, usdcEthPrice) {
       relayerBalance[msg.sender] = 1;
     } catch (bytes memory reason) {
       relayerBalance[msg.sender] = balance;
