@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Ethereum bridging contract for Predictor Network",
   "author": "Predictor Foundation",
-  "license": "GPL-3.0-only",
+  "license": "MIT",
   "scripts": {
     "format": "npm run pretty:fix && npm run pretty:sol && npm run pretty:docs",
     "pretty:fix": "prettier --config ./.prettierrc.json --write \"**/*.{js,json}\"",
