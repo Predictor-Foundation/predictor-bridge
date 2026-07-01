@@ -8,15 +8,6 @@ The bridge is secured by a threshold of Predictor Network authors, who collectiv
 
 The contract supports standard ERC-20 bridging, permit-based lifts, and sponsored USDC bridge actions via relayers.
 
-## Contracts
-
-| Contract | Network | Environment | Address |
-|---|---|---:|---|
-| Predictor Bridge | Mainnet | Production | TBD |
-| Predictor Bridge | Sepolia | Testnet | [0xb2f7839A438aD5FF4C99cac855380f2B4D147ea1](https://sepolia.etherscan.io/address/0xb2f7839A438aD5FF4C99cac855380f2B4D147ea1) |
-| Predictor Bridge | Sepolia | Dev | [0x5e0E8c9Af3e9C4aFd3dB69c450e782f5bE9551b5](https://sepolia.etherscan.io/address/0x5e0E8c9Af3e9C4aFd3dB69c450e782f5bE9551b5) |
-| Predictor Bridge (resettable) | Sepolia | Testnet | TBD — paste after first deploy |
-
 ## Deployment Addresses
 
 ### Testnet
@@ -25,19 +16,19 @@ The contract supports standard ERC-20 bridging, permit-based lifts, and sponsore
 
 | Contract | Address |
 |---|---|
-| Relayer USDC | [0x01519c462044aEBc7bF9a786005880ecE32AfeeF](https://sepolia.etherscan.io/address/0x01519c462044aEBc7bF9a786005880ecE32AfeeF) |
-| Dummy USDT | [0x904E2E61E71d186418511A37a6C6D022d69344f4](https://sepolia.etherscan.io/address/0x904E2E61E71d186418511A37a6C6D022d69344f4) |
-| Predictor Bridge | [0xb2f7839A438aD5FF4C99cac855380f2B4D147ea1](https://sepolia.etherscan.io/address/0xb2f7839A438aD5FF4C99cac855380f2B4D147ea1) |
+| Predictor Bridge | [0x83478B43A9809Ecfc86cb063C733ECdee074EF72](https://sepolia.etherscan.io/address/0x83478B43A9809Ecfc86cb063C733ECdee074EF72) |
+| Relayer USDC / Helper | [0xA6B8979480263424C74d64EcFC552c39Fe3a03f3](https://sepolia.etherscan.io/address/0xA6B8979480263424C74d64EcFC552c39Fe3a03f3) |
+| Dummy USDT | [0xc25EEEDd37b9BE1d9a186d31F6280e6B6dc0092e](https://sepolia.etherscan.io/address/0xc25EEEDd37b9BE1d9a186d31F6280e6B6dc0092e) |
 
 #### Authors
 
 | Author | Address |
 |---|---|
-| Author 1 | [0x97249Cd69BA44E2F29855a884bC4ff6701d9929d](https://sepolia.etherscan.io/address/0x97249Cd69BA44E2F29855a884bC4ff6701d9929d) |
-| Author 2 | [0xdD7a161770D7477644b29d0A3aD7b796A4880ab4](https://sepolia.etherscan.io/address/0xdD7a161770D7477644b29d0A3aD7b796A4880ab4) |
-| Author 3 | [0x692a1E365FD302Ad4d598617520ab3D272c50A6E](https://sepolia.etherscan.io/address/0x692a1E365FD302Ad4d598617520ab3D272c50A6E) |
-| Author 4 | [0x6B1D580fe8DdA058Fa2905D2a3d792a95bF5379A](https://sepolia.etherscan.io/address/0x6B1D580fe8DdA058Fa2905D2a3d792a95bF5379A) |
-| Author 5 | [0xee608Bd42D2A41919f7F93645b040F3eC5E1670b](https://sepolia.etherscan.io/address/0xee608Bd42D2A41919f7F93645b040F3eC5E1670b) |
+| Author 1 | [0x073411c96F59ef379DE620fd3226eA3f222af1b9](https://sepolia.etherscan.io/address/0x073411c96F59ef379DE620fd3226eA3f222af1b9) |
+| Author 2 | [0xE43ce3aEF589a1c413A4213F9937Ac60D341d214](https://sepolia.etherscan.io/address/0xE43ce3aEF589a1c413A4213F9937Ac60D341d214) |
+| Author 3 | [0xee2238986aE9C2D104cd11a3e2165c4684580eF9](https://sepolia.etherscan.io/address/0xee2238986aE9C2D104cd11a3e2165c4684580eF9) |
+| Author 4 | [0xF6D4696405B4D6971bb0532cf5e76774259575aA](https://sepolia.etherscan.io/address/0xF6D4696405B4D6971bb0532cf5e76774259575aA) |
+| Author 5 | [0xF45337E8A2ffE96809B71a6D6Be186985457f6bB](https://sepolia.etherscan.io/address/0xF45337E8A2ffE96809B71a6D6Be186985457f6bB) |
 
 #### Relayers
 
@@ -53,19 +44,20 @@ The contract supports standard ERC-20 bridging, permit-based lifts, and sponsore
 
 | Contract | Address |
 |---|---|
-| Relayer USDC | [0x73B338B277E82f05E74487E321B2e588A0d4E4E3](https://sepolia.etherscan.io/address/0x73B338B277E82f05E74487E321B2e588A0d4E4E3) |
-| Dummy USDT | [0xC737a683Cf220E46f42577cd8e950ce69AfE2D94](https://sepolia.etherscan.io/address/0xC737a683Cf220E46f42577cd8e950ce69AfE2D94) |
-| Predictor Bridge | [0x5e0E8c9Af3e9C4aFd3dB69c450e782f5bE9551b5](https://sepolia.etherscan.io/address/0x5e0E8c9Af3e9C4aFd3dB69c450e782f5bE9551b5) |
+| Predictor Bridge | [0x9E48A438Bbc37BbFfd6dA72DF7b28d170e3E3685](https://sepolia.etherscan.io/address/0x9E48A438Bbc37BbFfd6dA72DF7b28d170e3E3685) |
+| Dummy PRD | [0xDF1E384d36A6EE55a1b3c89bF6ec720fC5c611EB](https://sepolia.etherscan.io/address/0xDF1E384d36A6EE55a1b3c89bF6ec720fC5c611EB) |
+| Relayer USDC / Helper | [0x9271D49FC2467419cad65Dd405baDc60d989c75A](https://sepolia.etherscan.io/address/0x9271D49FC2467419cad65Dd405baDc60d989c75A) |
+| Dummy USDT | [0xb7E2e5A4161036Af058336F07ADAbC9aE932FCf5](https://sepolia.etherscan.io/address/0xb7E2e5A4161036Af058336F07ADAbC9aE932FCf5) |
+
 
 #### Authors
 
 | Author | Address |
 |---|---|
-| Author 1 | [0x0f1dC3B7e07a8E198A70Ae2e167cA54EF4c21635](https://sepolia.etherscan.io/address/0x0f1dC3B7e07a8E198A70Ae2e167cA54EF4c21635) |
-| Author 2 | [0xEC70c92A562DDDf75EfB4b2A922EEA338FED0D21](https://sepolia.etherscan.io/address/0xEC70c92A562DDDf75EfB4b2A922EEA338FED0D21) |
-| Author 3 | [0x8d1423c9ab168147f0a853098E738b2F8f462Ba2](https://sepolia.etherscan.io/address/0x8d1423c9ab168147f0a853098E738b2F8f462Ba2) |
-| Author 4 | [0x430E61B21E45aB66877E0af3d10302cBf60f754C](https://sepolia.etherscan.io/address/0x430E61B21E45aB66877E0af3d10302cBf60f754C) |
-| Author 5 | [0xe639bdf2779b5D31e840A02F7AFf20bF5a4f3567](https://sepolia.etherscan.io/address/0xe639bdf2779b5D31e840A02F7AFf20bF5a4f3567) |
+| Author 1 | [0xcc66EC55E0cdF70e1549beBE969e5988603Ef960](https://sepolia.etherscan.io/address/0xcc66EC55E0cdF70e1549beBE969e5988603Ef960) |
+| Author 2 | [0x890E39BaF40792D0Df2582c7C232CE4a8D5Bf965](https://sepolia.etherscan.io/address/0x890E39BaF40792D0Df2582c7C232CE4a8D5Bf965) |
+| Author 3 | [0x2cC51c7b7b795088Ac10c06cDfc0593a821d3C55](https://sepolia.etherscan.io/address/0x2cC51c7b7b795088Ac10c06cDfc0593a821d3C55) |
+| Author 4 | [0x548e68b384fd8Ac91C88Ad16Cb919b24d7afed52](https://sepolia.etherscan.io/address/0x548e68b384fd8Ac91C88Ad16Cb919b24d7afed52) |
 
 #### Relayers
 
@@ -96,6 +88,7 @@ The bridge operates in two directions:
 | Method                          | User TX Required | Caller  | Allowed Tokens     | Destination Account Format  | Account Type      |
 |---------------------------------|:----------------:|:-------:|--------------------|-----------------------------|-------------------|
 | `lift`                          | 2                | User    | Any ERC20          | Explicit `bytes32`          | Base account      |
+| `liftPRD`                       | 2                | User    | PRD                | Explicit `bytes32`          | Base account      |
 | `permitLift`                    | 1                | User    | Any EIP-2612 ERC20 | Explicit `bytes32`          | Base account      |
 | `predictionMarketLift`          | 2                | User    | USDC / USDT        | Derived from caller address | Prediction market |
 | `predictionMarketPermitLift`    | 1                | User    | USDC               | Derived from caller address | Prediction market |
@@ -112,7 +105,8 @@ The bridge operates in two directions:
 - Chainalysis Sanctions\
 `CHAINALYSIS_SANCTIONS`: [0x40C57923924B5c5c5455c48D93317139ADDaC8fb](https://etherscan.io/address/0x40C57923924B5c5c5455c48D93317139ADDaC8fb)
 
-- Tokens  
+- Tokens
+  - `PRD`: [0x50Ce6df72cFFCA748c2D9Cf80F1af693C36d176c](https://etherscan.io/address/0x50Ce6df72cFFCA748c2D9Cf80F1af693C36d176c)  
   - `USDC`: [0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48](https://etherscan.io/address/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48)
   - `USDT`: [0xdAC17F958D2ee523a2206206994597C13D831ec7](https://etherscan.io/address/0xdAC17F958D2ee523a2206206994597C13D831ec7)
   - `WETH`: [0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2](https://etherscan.io/address/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2)
@@ -145,9 +139,12 @@ MAINNET_RPC_URL=
 MAINNET_LEDGER_ADDRESS=  
 
 ### Commands
-npm run deploy:bridge:dev
-npm run deploy:bridge:testnet
-npm run deploy:bridge:mainnet
+
+`npm run deploy:bridge:dev`
+
+`npm run deploy:bridge:testnet`
+
+`npm run deploy:bridge:mainnet`
 
 ## Resettable Variant (Sepolia only)
 `PredictorBridgeResettable` is a subclass of the production bridge that adds two owner-gated reset functions for use between test runs. Production behaviour is inherited unchanged. Owner is preserved across both calls.
@@ -156,6 +153,7 @@ npm run deploy:bridge:mainnet
 - `resetAuthors(t1Addresses, t1PubKeysLHS, t1PubKeysRHS, t2PubKeys)` clears the existing author set (the contract enumerates it via `nextAuthorId`) and re-seeds with the supplied authors. Emits `LogAuthorsReset()`.
 
 ### Deploy
+
 `npm run deploy:bridge:testnet:resettable`
 
 The script reuses `deploy/deploy-bridge.js` with `BRIDGE_CONTRACT=PredictorBridgeResettable`. The deployed proxy address is permanent — paste it into the contracts table above after the first deploy.
@@ -178,9 +176,12 @@ Ensure the new implementation is upgrade-safe:
 - `UUPSUpgradeable` is still correctly implemented with `_authorizeUpgrade`
 
 ### Commands
-npm run deploy:implementation:dev
-npm run deploy:implementation:testnet
-npm run deploy:implementation:mainnet
+
+`npm run deploy:implementation:dev`
+
+`npm run deploy:implementation:testnet`
+
+`npm run deploy:implementation:mainnet`
 
 ### Result
 - New bridge implementation deployed and verified on Etherscan

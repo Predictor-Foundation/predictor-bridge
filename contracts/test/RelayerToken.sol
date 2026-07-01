@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 import '../interfaces/IChainalysis.sol';
 import '../interfaces/IUniswapV3Callback.sol';
@@ -13,7 +13,8 @@ contract RelayerToken is Initializable, IChainalysis, ERC20Upgradeable, ERC20Per
   mapping(address => bool) public validBridge;
   mapping(address => bool) public isSanctioned;
 
-  int256 public constant latestAnswer = 200000000000000; // $5000 per ETH
+  int256 public constant CHAINLINK_ANSWER = 200000000000000; // $5000 per ETH
+  uint80 public constant CHAINLINK_ROUND_ID = 1;
   string public constant version = '1';
 
   constructor() {
@@ -41,12 +42,16 @@ contract RelayerToken is Initializable, IChainalysis, ERC20Upgradeable, ERC20Per
     isSanctioned[addr] = _isSanctioned;
   }
 
+  function latestRoundData() external view returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound) {
+    return (CHAINLINK_ROUND_ID, CHAINLINK_ANSWER, block.timestamp, block.timestamp, CHAINLINK_ROUND_ID);
+  }
+
   function withdraw(uint256 amount) external {
     if (!validBridge[msg.sender]) revert();
 
     (bool success, ) = msg.sender.call{ value: amount }('');
     assembly {
-      // Intentionally ignored: this test helper mirrors the production callback shape without enforcing ETH liquidity.
+      // Intentionally ignored: this testnet helper mirrors the production callback shape without enforcing ETH liquidity.
       pop(success)
     }
   }
@@ -54,7 +59,7 @@ contract RelayerToken is Initializable, IChainalysis, ERC20Upgradeable, ERC20Per
   function swap(address, bool, int256 usdcInAmount, uint160, bytes calldata) external returns (int256, int256) {
     if (!validBridge[msg.sender]) revert();
 
-    int256 ethOutAmount = (-1 * latestAnswer * usdcInAmount * 99) / (100 * 1e6);
+    int256 ethOutAmount = (-1 * CHAINLINK_ANSWER * usdcInAmount * 99) / (100 * 1e6);
     IUniswapV3Callback(msg.sender).uniswapV3SwapCallback(usdcInAmount, 0, '');
 
     return (0, ethOutAmount);

@@ -45,12 +45,13 @@ function assertAddress(name, value) {
 }
 
 function validateBridgeConfig(env) {
-  const { owner, feed, pool, sanctions, usdc, usdt, weth } = getEnvConfig(env);
+  const { owner, feed, pool, sanctions, prd, usdc, usdt, weth } = getEnvConfig(env);
 
   assertAddress('owner', owner);
   assertAddress('feed', feed);
   assertAddress('pool', pool);
   assertAddress('sanctions', sanctions);
+  assertAddress('prd', prd);
   assertAddress('usdc', usdc);
   assertAddress('usdt', usdt);
   assertAddress('weth', weth);
@@ -65,8 +66,8 @@ function validateInitConfig(env) {
 }
 
 function getBridgeArgs(env) {
-  const { feed, pool, sanctions, usdc, usdt, weth } = getEnvConfig(env);
-  return [feed, pool, sanctions, usdc, usdt, weth];
+  const { feed, pool, sanctions, prd, usdc, usdt, weth } = getEnvConfig(env);
+  return [feed, pool, sanctions, prd, usdc, usdt, weth];
 }
 
 function getInitArgs(env) {

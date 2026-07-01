@@ -9,6 +9,7 @@ describe('PredictorBridge owner tests', function () {
   let bridge;
   let feed;
   let pool;
+  let prd;
   let usdc;
   let usdt;
   let weth;
@@ -19,7 +20,7 @@ describe('PredictorBridge owner tests', function () {
     ethers = getEthers();
     [owner, newOwner, otherAccount] = getAccounts();
     authors = getAuthors();
-    ({ bridge, feed, pool, sanctions, usdc, usdt, weth } = await deployFixture({ numAuthors: 6 }));
+    ({ bridge, feed, pool, sanctions, prd, usdc, usdt, weth } = await deployFixture({ numAuthors: 6 }));
   });
 
   describe('ownership transfer', function () {
@@ -104,7 +105,7 @@ describe('PredictorBridge owner tests', function () {
         t1PubKeysRHS: authors.slice(0, 5).map(a => a.t1PubKeyRHS),
         t2PubKeys: authors.slice(0, 5).map(a => a.t2PubKey),
         owner: owner.address,
-        constructorArgs: [feed.target, pool.target, sanctions.target, usdc.target, usdt.target, weth.target]
+        constructorArgs: [feed.target, pool.target, sanctions.target, prd.target, usdc.target, usdt.target, weth.target]
       };
     }
 
@@ -129,7 +130,7 @@ describe('PredictorBridge owner tests', function () {
       const v = baseInitValues();
       await deployAndExpectRevert({
         initArgs: [v.t1Addresses, v.t1PubKeysLHS, v.t1PubKeysRHS, v.t2PubKeys, v.owner],
-        constructorArgs: [ethers.ZeroAddress, pool.target, sanctions.target, usdc.target, usdt.target, weth.target],
+        constructorArgs: [ethers.ZeroAddress, pool.target, sanctions.target, prd.target, usdc.target, usdt.target, weth.target],
         error: 'AddressIsZero'
       });
     });
@@ -245,7 +246,7 @@ describe('PredictorBridge owner tests', function () {
     it('allows owner upgrade', async () => {
       const Upgraded = await ethers.getContractFactory('MockPredictorBridgeUpgrade');
 
-      const newImpl = await Upgraded.deploy(feed.target, pool.target, sanctions.target, usdc.target, usdt.target, weth.target);
+      const newImpl = await Upgraded.deploy(feed.target, pool.target, sanctions.target, prd.target, usdc.target, usdt.target, weth.target);
       await newImpl.waitForDeployment();
       const tx = await bridge.upgradeToAndCall(newImpl.target, '0x');
       await tx.wait();
@@ -256,7 +257,7 @@ describe('PredictorBridge owner tests', function () {
 
     it('rejects non-owner upgrade', async () => {
       const Upgraded = await ethers.getContractFactory('MockPredictorBridgeUpgrade');
-      const newImpl = await Upgraded.deploy(feed.target, pool.target, sanctions.target, usdc.target, usdt.target, weth.target);
+      const newImpl = await Upgraded.deploy(feed.target, pool.target, sanctions.target, prd.target, usdc.target, usdt.target, weth.target);
       await newImpl.waitForDeployment();
 
       await expect(bridge.connect(otherAccount).upgradeToAndCall(newImpl.target, '0x')).to.be.revertedWithCustomError(bridge, 'OwnableUnauthorizedAccount');

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 interface IPredictorBridge {
   struct LowerCheck {
@@ -26,7 +26,7 @@ interface IPredictorBridge {
   event LogLowerClaimed(uint32 indexed lowerId);
   event LogLowerReverted(address indexed token, bytes32 indexed t2PubKey, address indexed originalRecipient, uint256 amount, uint32 lowerId);
   event LogRelayerDeregistered(address indexed relayer);
-  event LogRefundFailed(address indexed relayer, int256 balance);
+  event LogRefundFailed(address indexed relayer, int256 balance, bytes reason);
   event LogRelayerLowered(uint32 indexed lowerId, uint256 amount);
   event LogRelayerRegistered(address indexed relayer);
   event LogRootPublished(bytes32 indexed rootHash, uint32 indexed t2TxId);
@@ -40,6 +40,7 @@ interface IPredictorBridge {
   function deregisterRelayer(address relayer) external;
   function initialize(address[] calldata t1Addresses, bytes32[] calldata t1PubKeysLHS, bytes32[] calldata t1PubKeysRHS, bytes32[] calldata t2PubKeys, address owner_) external;
   function lift(address token, bytes32 t2PubKey, uint256 amount) external;
+  function liftPRD(bytes32 t2PubKey, uint256 amount) external;
   function pause() external;
   function publishRoot(bytes32 rootHash, uint256 expiry, uint32 t2TxId, bytes calldata confirmations) external;
   function permitLift(address token, bytes32 t2PubKey, uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external;

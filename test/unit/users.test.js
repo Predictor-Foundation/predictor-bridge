@@ -26,6 +26,7 @@ describe('PredictorBridge user tests', function () {
   let owner;
   let user;
   let bridge;
+  let prd;
   let token;
   let usdc;
   let usdt;
@@ -36,7 +37,7 @@ describe('PredictorBridge user tests', function () {
     await init({ numAuthors: 5 });
     ethers = getEthers();
     [owner, user] = getAccounts();
-    ({ bridge, sanctions, token, usdc, usdt } = await deployFixture({ numAuthors: 5 }));
+    ({ bridge, sanctions, prd, token, usdc, usdt } = await deployFixture({ numAuthors: 5 }));
     t2PubKey = await bridge.deriveT2PublicKey(owner.address);
   });
 
@@ -56,8 +57,25 @@ describe('PredictorBridge user tests', function () {
         .withArgs(token.target, t2PubKey, amount);
     });
 
+    it('lifts PRD via approve + liftPRD', async () => {
+      await prd.approve(bridge.target, amount);
+      await expect(bridge.liftPRD(t2PubKey, amount)).to.emit(bridge, 'LogLifted').withArgs(prd.target, t2PubKey, amount);
+    });
+
     it('lifts via permitLift', async () => {
       const permit = await getPermit(token, owner, bridge, amount);
+      await expect(bridge.permitLift(token.target, t2PubKey, amount, permit.deadline, permit.v, permit.r, permit.s))
+        .to.emit(bridge, 'LogLifted')
+        .withArgs(token.target, t2PubKey, amount);
+    });
+
+    it('lifts via permitLift when permit was already consumed and allowance exists', async () => {
+      const permit = await getPermit(token, owner, bridge, amount);
+
+      await token.permit(owner.address, bridge.target, amount, permit.deadline, permit.v, permit.r, permit.s);
+
+      expect(await token.allowance(owner.address, bridge.target)).to.equal(amount);
+
       await expect(bridge.permitLift(token.target, t2PubKey, amount, permit.deadline, permit.v, permit.r, permit.s))
         .to.emit(bridge, 'LogLifted')
         .withArgs(token.target, t2PubKey, amount);
@@ -98,6 +116,50 @@ describe('PredictorBridge user tests', function () {
       await expect(bridge.predictionMarketPermitLift(amount, permit.deadline, permit.v, permit.r, permit.s))
         .to.emit(bridge, 'LogLiftedToPredictionMarket')
         .withArgs(usdc.target, await bridge.deriveT2PublicKey(owner.address), amount);
+    });
+
+    it('lifts via predictionMarketPermitLift when permit was already consumed and allowance exists', async () => {
+      const permit = await getPermit(usdc, owner, bridge, amount);
+
+      await usdc.permit(owner.address, bridge.target, amount, permit.deadline, permit.v, permit.r, permit.s);
+
+      expect(await usdc.allowance(owner.address, bridge.target)).to.equal(amount);
+
+      await expect(bridge.predictionMarketPermitLift(amount, permit.deadline, permit.v, permit.r, permit.s))
+        .to.emit(bridge, 'LogLiftedToPredictionMarket')
+        .withArgs(usdc.target, await bridge.deriveT2PublicKey(owner.address), amount);
+    });
+
+    it('rejects zero amount for liftPRD', async () => {
+      await prd.approve(bridge.target, 0);
+      await expect(bridge.liftPRD(t2PubKey, 0)).to.be.revertedWithCustomError(bridge, 'AmountIsZero');
+    });
+
+    it('rejects zero t2 key for liftPRD', async () => {
+      await prd.approve(bridge.target, amount);
+      await expect(bridge.liftPRD(ethers.ZeroHash, amount)).to.be.revertedWithCustomError(bridge, 'InvalidT2Key');
+    });
+
+    it('rejects liftPRD when paused', async () => {
+      await bridge.pause();
+      await prd.approve(bridge.target, amount);
+
+      await expect(bridge.liftPRD(t2PubKey, amount)).to.be.revertedWithCustomError(bridge, 'EnforcedPause');
+    });
+
+    it('rejects sanctioned sender for liftPRD', async () => {
+      await sanctions.setSanctioned(SANCTIONED_ADDRESS, true);
+      await impersonateAccount(SANCTIONED_ADDRESS);
+      const sanctioned = await ethers.getSigner(SANCTIONED_ADDRESS);
+
+      await expect(bridge.connect(sanctioned).liftPRD(t2PubKey, amount)).to.be.revertedWithCustomError(bridge, 'AddressBlocked');
+
+      await stopImpersonatingAccount(SANCTIONED_ADDRESS);
+    });
+
+    it('liftPRD uses the hardcoded PRD token, not an arbitrary approved token', async () => {
+      await token.approve(bridge.target, amount);
+      await expect(bridge.liftPRD(t2PubKey, amount)).to.revert();
     });
 
     it('rejects invalid token for predictionMarketLift', async () => {
@@ -153,6 +215,15 @@ describe('PredictorBridge user tests', function () {
       await expect(bridge.permitLift(token.target, t2PubKey, amount, permit.deadline, permit.v, permit.r, permit.s)).to.be.revertedWithCustomError(bridge, 'EnforcedPause');
     });
 
+    it('rejects permitLift when permit fails and allowance is too low', async () => {
+      const permit = await getPermit(token, owner, bridge, amount);
+
+      await expect(bridge.permitLift(token.target, t2PubKey, amount, permit.deadline, 27, randomBytes32(), randomBytes32())).to.be.revertedWithCustomError(
+        bridge,
+        'PermitAllowanceTooLow'
+      );
+    });
+
     it('rejects predictionMarketLift when paused', async () => {
       await bridge.pause();
       await token.approve(bridge.target, amount);
@@ -170,6 +241,7 @@ describe('PredictorBridge user tests', function () {
       const permit = await getPermit(usdc, owner, bridge, amount);
       await expect(bridge.predictionMarketPermitLift(amount, permit.deadline, permit.v, permit.r, permit.s)).to.be.revertedWithCustomError(bridge, 'EnforcedPause');
     });
+
     it('rejects sanctioned sender for lift', async () => {
       await sanctions.setSanctioned(SANCTIONED_ADDRESS, true);
       await impersonateAccount(SANCTIONED_ADDRESS);
@@ -374,11 +446,6 @@ describe('PredictorBridge user tests', function () {
     it('rejects random caller revert', async () => {
       const [lowerProof] = await createLowerProof(bridge, token, amount, owner.address, randomBytes32());
       await expect(bridge.connect(user).revertLower(lowerProof)).to.be.revertedWithCustomError(bridge, 'PermissionDenied');
-    });
-
-    it('rejects legacy lower revert', async () => {
-      const [legacyLowerProof] = await createLowerProof(bridge, token, amount, owner.address, ethers.ZeroHash);
-      await expect(bridge.connect(owner).revertLower(legacyLowerProof)).to.be.revertedWithCustomError(bridge, 'LegacyLower');
     });
 
     it('rejects invalid proof on revertLower', async () => {

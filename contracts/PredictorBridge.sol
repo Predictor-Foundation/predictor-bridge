@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 import './interfaces/IChainalysis.sol';
 import './interfaces/IChainlinkV3Aggregator.sol';
@@ -35,6 +35,7 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
   bytes32 private constant PUBLISH_ROOT_TYPEHASH = keccak256('PublishRoot(bytes32 rootHash,uint256 expiry,uint32 t2TxId)');
   bytes32 private constant REMOVE_AUTHOR_TYPEHASH = keccak256('RemoveAuthor(bytes32 t2PubKey,bytes t1PubKey,uint256 expiry,uint32 t2TxId)');
 
+  uint256 private constant CHAINLINK_USDC_ETH_MAX_AGE = 25 hours;
   uint256 private constant ETH_SIG_LENGTH = 65;
   uint256 private constant LOWER_DATA_LENGTH = 20 + 32 + 20 + 4 + 32 + 8;
   uint256 private constant MAX_AUTHORS = 255;
@@ -43,6 +44,7 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
   uint160 private constant MIN_SQRT_RATIO = 4295128739;
   uint256 private constant OWNER_REVERT_LOWER_DELAY = 3 days;
   uint256 private constant T2_TOKEN_LIMIT = type(uint128).max;
+  uint256 private constant USDC_ETH_PRICE_SCALE = 1e6;
 
   int8 private constant TX_SUCCEEDED = 1;
   int8 private constant TX_PENDING = 0;
@@ -59,7 +61,11 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
   address public immutable CHAINLINK_USDC_ETH_FEED;
   address public immutable UNISWAP_V3_USDC_WETH_POOL;
   address public immutable CHAINALYSIS_SANCTIONS;
+  address public immutable PRD;
   address public immutable USDC;
+  /**
+   * @dev USDT support accepts token-level freeze/blacklist risk inherent to USDT.
+   */
   address public immutable USDT;
   address public immutable WETH;
 
@@ -98,11 +104,11 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
   error BadConfirmations(); // 0x409c8aac
   error CannotChangeT2Key(bytes32); // 0x140c6815
   error InvalidCaller(); // 0x48f5c3ed
+  error InvalidOracleData(); // 0xf1bccc72
   error InvalidProof(); // 0x09bde339
   error InvalidT1Key(); // 0x4b0218a8
   error InvalidT2Key(); // 0xf4fc87a4
   error InvalidToken(); // 0xc1ab6dc1
-  error LegacyLower(); // 0x9e79b036
   error LiftFailed(); // 0xb19ed519
   error LiftLimitHit(); // 0xc36d2830
   error LowerIsUsed(); // 0x24c1c1ce
@@ -110,13 +116,18 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
   error NotAnAuthor(); // 0x157b0512
   error NotEnoughAuthors(); // 0x3a6a875c
   error PermissionDenied(); // 0x1e092104
+  error PermitAllowanceTooLow(); //0x06b0b401
   error RelayerOnly(); // 0x7378cebb
-  error RelayerAlreadyRegistered();
-  error RelayerNotRegistered();
+  error RefundBelowMin(); // 0x92f0d7a3
+  error RefundRejected(); // 0x6e76c783
+  error RelayerAlreadyRegistered(); // 0xdc619d07
+  error RelayerNotRegistered(); // 0x57bb83ee
   error RootHashIsUsed(); // 0x2c8a3b6e
   error T1AddressInUse(address); // 0x78f22dd1
   error T2KeyInUse(bytes32); // 0x02f3935c
   error TooManyAuthors(); // 0x7e8db19d
+  error TransferFailed(); // 0x90b8ec18
+  error TransferFromFailed(); // 0x7939f424
   error TxIdIsUsed(); // 0x7edd16f0
   error WindowExpired(); // 0x7bbfb6fe
 
@@ -124,14 +135,15 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
   // Constructor
   // ============================================================
 
-  constructor(address feed, address pool, address sanctions, address usdc, address usdt, address weth) {
-    if (feed == address(0) || pool == address(0) || sanctions == address(0) || usdc == address(0) || usdt == address(0) || weth == address(0)) {
+  constructor(address feed, address pool, address sanctions, address prd, address usdc, address usdt, address weth) {
+    if (feed == address(0) || pool == address(0) || prd == address(0) || sanctions == address(0) || usdc == address(0) || usdt == address(0) || weth == address(0)) {
       revert AddressIsZero();
     }
 
     CHAINLINK_USDC_ETH_FEED = feed;
     UNISWAP_V3_USDC_WETH_POOL = pool;
     CHAINALYSIS_SANCTIONS = sanctions;
+    PRD = prd;
     USDC = usdc;
     USDT = usdt;
     WETH = weth;
@@ -190,6 +202,8 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
 
   /**
    * @dev Claims funds for the recipient specified in a valid lower proof.
+   * No Ethereum-level sanctions check applied here, exit eligibility is
+   * controlled on the Predictor network prior to lower proof generation.
    *
    * @param lowerProof Encoded lower data followed by author confirmations.
    */
@@ -249,7 +263,7 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
   }
 
   /**
-   * @dev Lifts approved tokens from the caller to the specified T2 recipient.
+   * @dev Lifts any approved ERC20 tokens from the caller to the specified T2 recipient.
    *
    * @param token Token to lift.
    * @param t2PubKey Destination T2 public key.
@@ -258,6 +272,17 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
   function lift(address token, bytes32 t2PubKey, uint256 amount) external whenNotPaused nonReentrant checkAddress(msg.sender) {
     if (t2PubKey == bytes32(0)) revert InvalidT2Key();
     emit LogLifted(token, t2PubKey, _lift(msg.sender, token, amount));
+  }
+
+  /**
+   * @dev Lifts approved PRD tokens from the caller to the specified T2 recipient.
+   *
+   * @param t2PubKey Destination T2 public key.
+   * @param amount Amount requested for lifting.
+   */
+  function liftPRD(bytes32 t2PubKey, uint256 amount) external whenNotPaused nonReentrant checkAddress(msg.sender) {
+    if (t2PubKey == bytes32(0)) revert InvalidT2Key();
+    emit LogLifted(PRD, t2PubKey, _lift(msg.sender, PRD, amount));
   }
 
   /**
@@ -286,7 +311,9 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
   }
 
   /**
-   * @dev Lifts tokens using an ERC-2612 permit instead of prior approval.
+   * @dev Uses ERC-2612 permit as provided by the token.
+   * If the permit has already been consumed but allowance was set for this bridge,
+   * the lift can continue using the existing allowance.
    *
    * @param token Token to lift.
    * @param t2PubKey Destination T2 public key.
@@ -306,7 +333,7 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
     bytes32 s
   ) external whenNotPaused nonReentrant checkAddress(msg.sender) {
     if (t2PubKey == bytes32(0)) revert InvalidT2Key();
-    IERC20Permit(token).permit(msg.sender, address(this), amount, deadline, v, r, s);
+    _tryPermit(token, msg.sender, amount, deadline, v, r, s);
     emit LogLifted(token, t2PubKey, _lift(msg.sender, token, amount));
   }
 
@@ -331,7 +358,7 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
    * @param s Signature s value.
    */
   function predictionMarketPermitLift(uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external whenNotPaused nonReentrant checkAddress(msg.sender) {
-    IERC20Permit(USDC).permit(msg.sender, address(this), amount, deadline, v, r, s);
+    _tryPermit(USDC, msg.sender, amount, deadline, v, r, s);
     emit LogLiftedToPredictionMarket(USDC, deriveT2PublicKey(msg.sender), _lift(msg.sender, USDC, amount));
   }
 
@@ -355,6 +382,7 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
 
   /**
    * @dev Registers a relayer for sponsored prediction market USDC bridge operations.
+   * Relayers are permissioned service operators registered by the owner.
    *
    * @param relayer Relayer address to register.
    */
@@ -367,6 +395,10 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
 
   /**
    * @dev Lets a registered relayer lift USDC on behalf of a user and deduct its tx cost from the bridged amount.
+   * Relayer permits intentionally use a non-expiring deadline since relayers are permissioned EOAs operated as a service.
+   * The permit approves only this bridge for the fixed amount and is nonce-protected by USDC.
+   * The estimated relayer fee derived from gasCost is presented to users by the relayer service off-chain.
+   * gasCost is estimated by the relayer service to closely match expected network execution cost.
    *
    * @param gasCost Relayer-supplied gas usage figure for reimbursement.
    * @param amount Amount approved by the user.
@@ -388,18 +420,19 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
     int256 balance = relayerBalance[msg.sender];
     if (balance < 1) revert RelayerOnly();
 
-    uint256 txCost = (gasCost * tx.gasprice) / usdcEth();
+    uint256 usdcEthPrice = usdcEth();
+    uint256 txCost = (gasCost * tx.gasprice) / usdcEthPrice;
     if (txCost > amount) revert AmountTooLow();
 
-    IERC20Permit(USDC).permit(user, address(this), amount, type(uint256).max, v, r, s);
-    IERC20(USDC).safeTransferFrom(user, address(this), amount);
+    _tryPermit(USDC, user, amount, type(uint256).max, v, r, s);
+    if (!IERC20(USDC).transferFrom(user, address(this), amount)) revert TransferFromFailed();
 
     unchecked {
       amount -= txCost;
       balance += int256(txCost);
     }
 
-    if (triggerRefund) _attemptRelayerRefund(balance);
+    if (triggerRefund) _attemptRelayerRefund(balance, usdcEthPrice);
     else relayerBalance[msg.sender] = balance;
 
     emit LogLiftedToPredictionMarket(USDC, deriveT2PublicKey(user), amount);
@@ -407,7 +440,8 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
 
   /**
    * @dev Lets a registered relayer complete a USDC lower for the recipient specified in the proof and deduct its tx cost from the lowered amount.
-   *
+   * The estimated relayer fee derived from gasCost is presented to users by the relayer service off-chain.
+   * gasCost is estimated by the relayer service to closely match expected network execution cost.
    *
    * @param gasCost Relayer-supplied gas usage figure for reimbursement.
    * @param lowerProof Encoded lower data followed by author confirmations.
@@ -420,7 +454,8 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
     (address token, uint256 amount, address user, uint32 lowerId, bytes32 t2Sender, uint64 t2Timestamp) = _extractLowerData(lowerProof);
     if (token != USDC) revert InvalidToken();
 
-    uint256 txCost = (gasCost * tx.gasprice) / usdcEth();
+    uint256 usdcEthPrice = usdcEth();
+    uint256 txCost = (gasCost * tx.gasprice) / usdcEthPrice;
     if (txCost > amount) revert AmountTooLow();
 
     _processLower(token, amount, user, lowerId, t2Sender, t2Timestamp, lowerProof);
@@ -430,9 +465,9 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
       balance += int256(txCost);
     }
 
-    IERC20(USDC).safeTransfer(user, amount);
+    if (!IERC20(USDC).transfer(user, amount)) revert TransferFailed();
 
-    if (triggerRefund) _attemptRelayerRefund(balance);
+    if (triggerRefund) _attemptRelayerRefund(balance, usdcEthPrice);
     else relayerBalance[msg.sender] = balance;
 
     emit LogRelayerLowered(lowerId, amount);
@@ -487,7 +522,6 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
 
     bool canRevert = msg.sender == recipient || (msg.sender == owner() && block.timestamp > t2Timestamp + OWNER_REVERT_LOWER_DELAY);
     if (!canRevert) revert PermissionDenied();
-    if (t2Sender == bytes32(0)) revert LegacyLower();
 
     _processLower(token, amount, recipient, lowerId, t2Sender, t2Timestamp, lowerProof);
     emit LogLowerReverted(token, t2Sender, recipient, amount, lowerId);
@@ -619,12 +653,18 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
 
   /**
    * @dev Returns the current Wei value of one USDC using the configured Chainlink feed.
-   *
-   * @return price Wei-denominated value of 1 USDC.
+   * Uses latestRoundData() and validates positive answer, complete round and freshness.
+   * @return price Wei-denominated value of 1 USDC per USDC base unit.
    */
   function usdcEth() public view returns (uint256 price) {
+    (uint80 roundId, int256 answer, , uint256 updatedAt, uint80 answeredInRound) = IChainlinkV3Aggregator(CHAINLINK_USDC_ETH_FEED).latestRoundData();
+
     unchecked {
-      price = uint256(IChainlinkV3Aggregator(CHAINLINK_USDC_ETH_FEED).latestAnswer()) / 1e6;
+      if (answer <= 0 || updatedAt == 0 || block.timestamp - updatedAt > CHAINLINK_USDC_ETH_MAX_AGE || answeredInRound < roundId) {
+        revert InvalidOracleData();
+      }
+
+      price = uint256(answer) / USDC_ETH_PRICE_SCALE;
     }
   }
 
@@ -633,24 +673,24 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
   // ============================================================
 
   /**
-   * @dev Internal callback entry point used to convert accumulated relayer USDC fees into ETH.
+   * @dev Internal callback entry point used to convert accrued relayer USDC fees to ETH.
    * Can only be called by this contract.
+   * Uses a fixed slippage guard for converting accrued relayer USDC fees to ETH.
+   * Refund failure does not affect bridging operations and preserves the relayer balance via _attemptRelayerRefund.
    *
    * @param relayer Relayer receiving the refund.
    * @param balance USDC balance to convert.
    */
-  function refundRelayerCallback(address relayer, int256 balance) external {
+  function refundRelayerCallback(address relayer, int256 balance, uint256 usdcEthPrice) external {
     if (msg.sender != address(this)) revert InvalidCaller();
     (, int256 amount1) = IUniswapV3Pool(UNISWAP_V3_USDC_WETH_POOL).swap(address(this), true, balance, MIN_SQRT_RATIO + 1, '');
 
     unchecked {
       uint256 ethAmount = uint256(amount1 * -1);
-      if (ethAmount < (uint256(balance) * usdcEth() * 987) / 1000) revert();
+      if (ethAmount < (uint256(balance) * usdcEthPrice * 987) / 1000) revert RefundBelowMin();
       IWETH9(WETH).withdraw(ethAmount);
       (bool success, ) = relayer.call{ value: ethAmount }('');
-      assembly {
-        pop(success)
-      }
+      if (!success) revert RefundRejected();
     }
   }
 
@@ -697,12 +737,12 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
     _setAuthor(id);
   }
 
-  function _attemptRelayerRefund(int256 balance) private {
-    try this.refundRelayerCallback(msg.sender, balance - 1) {
+  function _attemptRelayerRefund(int256 balance, uint256 usdcEthPrice) private {
+    try this.refundRelayerCallback(msg.sender, balance - 1, usdcEthPrice) {
       relayerBalance[msg.sender] = 1;
-    } catch {
+    } catch (bytes memory reason) {
       relayerBalance[msg.sender] = balance;
-      emit LogRefundFailed(msg.sender, balance);
+      emit LogRefundFailed(msg.sender, balance, reason);
     }
   }
 
@@ -866,6 +906,14 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
     bytes32 t1PubKeyHash = keccak256(t1PubKey);
     bytes32 structHash = keccak256(abi.encode(REMOVE_AUTHOR_TYPEHASH, t2PubKey, t1PubKeyHash, expiry, t2TxId));
     return keccak256(abi.encodePacked(EIP712_PREFIX, _domainSeparator(), structHash));
+  }
+
+  function _tryPermit(address token, address owner_, uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s) private {
+    try IERC20Permit(token).permit(owner_, address(this), amount, deadline, v, r, s) {} catch {}
+
+    if (IERC20(token).allowance(owner_, address(this)) < amount) {
+      revert PermitAllowanceTooLow();
+    }
   }
 
   function _verifyConfirmations(bool isLower, bytes32 msgHash, bytes calldata confirmations) private {

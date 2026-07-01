@@ -14,6 +14,20 @@ describe('PredictorBridge relayer tests', function () {
   let pool;
   let feed;
 
+  const getBridgeLogs = receipt =>
+    receipt.logs
+      .filter(log => log.address.toLowerCase() === bridge.target.toLowerCase())
+      .map(log => {
+        try {
+          return bridge.interface.parseLog(log);
+        } catch (_) {
+          return null;
+        }
+      })
+      .filter(Boolean);
+
+  const getBridgeLog = (receipt, name) => getBridgeLogs(receipt).find(log => log.name === name);
+
   beforeEach(async () => {
     await init({ numAuthors: 5 });
     ethers = getEthers();
@@ -87,6 +101,44 @@ describe('PredictorBridge relayer tests', function () {
     });
   });
 
+  describe('usdcEth', function () {
+    it('returns the validated USDC/ETH price scaled for USDC base units', async () => {
+      const answer = 3_000_000_000_000_000n;
+      await feed.setLatestAnswer(answer);
+      expect(await bridge.usdcEth()).to.equal(answer / 1_000_000n);
+    });
+
+    it('rejects zero oracle answer', async () => {
+      await feed.setLatestAnswer(0);
+      await expect(bridge.usdcEth()).to.be.revertedWithCustomError(bridge, 'InvalidOracleData');
+    });
+
+    it('rejects negative oracle answer', async () => {
+      await feed.setLatestAnswer(-1);
+      await expect(bridge.usdcEth()).to.be.revertedWithCustomError(bridge, 'InvalidOracleData');
+    });
+
+    it('rejects incomplete oracle round with zero updatedAt', async () => {
+      const block = await ethers.provider.getBlock('latest');
+      await feed.setLatestRoundData(10, 3_000_000_000_000_000n, block.timestamp, 0, 10);
+      await expect(bridge.usdcEth()).to.be.revertedWithCustomError(bridge, 'InvalidOracleData');
+    });
+
+    it('rejects incomplete oracle round when answeredInRound is older than roundId', async () => {
+      const block = await ethers.provider.getBlock('latest');
+      await feed.setLatestRoundData(10, 3_000_000_000_000_000n, block.timestamp, block.timestamp, 9);
+      await expect(bridge.usdcEth()).to.be.revertedWithCustomError(bridge, 'InvalidOracleData');
+    });
+
+    it('rejects stale oracle answer', async () => {
+      const block = await ethers.provider.getBlock('latest');
+      const staleUpdatedAt = BigInt(block.timestamp) - 25n * 60n * 60n - 1n;
+
+      await feed.setLatestRoundData(10, 3_000_000_000_000_000n, Number(staleUpdatedAt), Number(staleUpdatedAt), 10);
+      await expect(bridge.usdcEth()).to.be.revertedWithCustomError(bridge, 'InvalidOracleData');
+    });
+  });
+
   describe('relayerLift', function () {
     beforeEach(async () => {
       await bridge.registerRelayer(relayer1.address);
@@ -96,6 +148,21 @@ describe('PredictorBridge relayer tests', function () {
       const amount = 10n * ONE_USD;
       const permit = await getPermit(usdc, user, bridge, amount, ethers.MaxUint256);
       const bridgeBalBefore = await usdc.balanceOf(bridge.target);
+
+      await expect(bridge.connect(relayer1).relayerLift(1n, amount, user.address, permit.v, permit.r, permit.s, false)).to.emit(bridge, 'LogLiftedToPredictionMarket');
+
+      expect(await usdc.balanceOf(bridge.target)).to.equal(bridgeBalBefore + amount);
+      expect(await bridge.relayerBalance(relayer1.address)).to.be.greaterThan(1);
+    });
+
+    it('lets relayerLift continue when permit was already consumed and allowance exists', async () => {
+      const amount = 10n * ONE_USD;
+      const permit = await getPermit(usdc, user, bridge, amount, ethers.MaxUint256);
+      const bridgeBalBefore = await usdc.balanceOf(bridge.target);
+
+      await usdc.connect(user).permit(user.address, bridge.target, amount, ethers.MaxUint256, permit.v, permit.r, permit.s);
+
+      expect(await usdc.allowance(user.address, bridge.target)).to.equal(amount);
 
       await expect(bridge.connect(relayer1).relayerLift(1n, amount, user.address, permit.v, permit.r, permit.s, false)).to.emit(bridge, 'LogLiftedToPredictionMarket');
 
@@ -117,7 +184,10 @@ describe('PredictorBridge relayer tests', function () {
       const amount = 1n * ONE_USD;
       const permit = await getPermit(usdc, user, bridge, amount, ethers.MaxUint256);
 
-      await expect(bridge.connect(relayer1).relayerLift(1n, amount, otherAccount.address, permit.v, permit.r, permit.s, false)).to.revert();
+      await expect(bridge.connect(relayer1).relayerLift(1n, amount, otherAccount.address, permit.v, permit.r, permit.s, false)).to.be.revertedWithCustomError(
+        bridge,
+        'PermitAllowanceTooLow'
+      );
     });
 
     it('rejects amount too low', async () => {
@@ -206,7 +276,7 @@ describe('PredictorBridge relayer tests', function () {
     });
 
     it('rejects direct refundRelayerCallback from external caller', async () => {
-      await expect(bridge.connect(owner).refundRelayerCallback(relayer1.address, 1)).to.be.revertedWithCustomError(bridge, 'InvalidCaller');
+      await expect(bridge.connect(owner).refundRelayerCallback(relayer1.address, 1, 0)).to.be.revertedWithCustomError(bridge, 'InvalidCaller');
     });
 
     it('rejects direct uniswap callback from non-pool', async () => {
@@ -219,19 +289,9 @@ describe('PredictorBridge relayer tests', function () {
       const tx = await bridge.connect(relayer1).relayerLift(1n, amount, user.address, permit.v, permit.r, permit.s, true);
       const receipt = await tx.wait();
 
-      const parsed = receipt.logs
-        .filter(log => log.address === bridge.target)
-        .map(log => {
-          try {
-            return bridge.interface.parseLog(log);
-          } catch (_) {
-            return null;
-          }
-        })
-        .filter(Boolean)
-        .map(log => log.name);
+      const eventNames = getBridgeLogs(receipt).map(log => log.name);
 
-      expect(parsed.includes('LogLiftedToPredictionMarket')).to.equal(true);
+      expect(eventNames.includes('LogLiftedToPredictionMarket')).to.equal(true);
     });
 
     it('preserves relayer balance when relayerLift refund attempt fails', async () => {
@@ -259,7 +319,6 @@ describe('PredictorBridge relayer tests', function () {
       const balanceBeforeAnyLower = await bridge.relayerBalance(relayer1.address);
       expect(balanceBeforeAnyLower).to.be.greaterThan(1);
 
-      // Do a lower without a refund to measure the exact txCost increment used by relayerLower for this environment
       const [probeProof] = await createLowerProof(bridge, usdc, lowerAmount, user.address, randomBytes32());
       await bridge.connect(relayer1).relayerLower(gasCost, probeProof, false);
 
@@ -267,10 +326,7 @@ describe('PredictorBridge relayer tests', function () {
       const observedLowerTxCost = balanceAfterProbeLower - balanceBeforeAnyLower;
       expect(observedLowerTxCost).to.be.greaterThanOrEqual(0);
 
-      // Now lower with refund against current balance + observedLowerTxCost - 1
-      const expectedBalanceDuringRefund = balanceAfterProbeLower + observedLowerTxCost;
-      const refundBalance = expectedBalanceDuringRefund - 1n;
-
+      const refundBalance = balanceAfterProbeLower + observedLowerTxCost - 1n;
       const usdcEth = await bridge.usdcEth();
       const minEthOut = (refundBalance * usdcEth * 987n) / 1000n;
       const ethOut = minEthOut + 1n;
@@ -282,25 +338,14 @@ describe('PredictorBridge relayer tests', function () {
       const tx = await bridge.connect(relayer1).relayerLower(gasCost, refundProof, true);
       const receipt = await tx.wait();
 
-      const parsed = receipt.logs
-        .filter(log => log.address === bridge.target)
-        .map(log => {
-          try {
-            return bridge.interface.parseLog(log);
-          } catch (_) {
-            return null;
-          }
-        })
-        .filter(Boolean);
-
-      const eventNames = parsed.map(log => log.name);
+      const eventNames = getBridgeLogs(receipt).map(log => log.name);
 
       expect(eventNames.includes('LogRelayerLowered')).to.equal(true);
       expect(eventNames.includes('LogRefundFailed')).to.equal(false);
       expect(await bridge.relayerBalance(relayer1.address)).to.equal(1);
     });
 
-    it('preserves relayer balance and emits LogRefundFailed when relayerLower refund attempt fails', async () => {
+    it('preserves relayer balance and emits LogRefundFailed with RefundBelowMin when relayerLower refund output is too low', async () => {
       const seedAmount = 50n * ONE_USD;
       const lowerAmount = 10n * ONE_USD;
       const gasCost = 1n;
@@ -317,22 +362,63 @@ describe('PredictorBridge relayer tests', function () {
       const tx = await bridge.connect(relayer1).relayerLower(gasCost, lowerProof, true);
       const receipt = await tx.wait();
 
-      const parsed = receipt.logs
-        .filter(log => log.address === bridge.target)
-        .map(log => {
-          try {
-            return bridge.interface.parseLog(log);
-          } catch (_) {
-            return null;
-          }
-        })
-        .filter(Boolean);
-
-      const refundFailed = parsed.find(log => log.name === 'LogRefundFailed');
+      const refundFailed = getBridgeLog(receipt, 'LogRefundFailed');
       expect(refundFailed).to.not.equal(undefined);
+      expect(refundFailed.args.reason).to.equal(bridge.interface.getError('RefundBelowMin').selector);
 
       const balanceAfterLower = await bridge.relayerBalance(relayer1.address);
       expect(balanceAfterLower).to.be.greaterThan(balanceBeforeLower);
+    });
+
+    it('preserves relayer balance and emits LogRefundFailed with RefundRejected when ETH is rejected by a relayer contract', async () => {
+      const RejectingRelayer = await ethers.getContractFactory('MockETHRejectingRelayer');
+      const rejectingRelayer = await RejectingRelayer.deploy();
+
+      await bridge.registerRelayer(rejectingRelayer.target);
+
+      const liftAmount = 50n * ONE_USD;
+      const gasCost = 1_000_000n;
+
+      await usdc.transfer(user.address, liftAmount * 5n);
+
+      const balanceBeforeProbe = await bridge.relayerBalance(rejectingRelayer.target);
+      const probePermit = await getPermit(usdc, user, bridge, liftAmount, ethers.MaxUint256);
+
+      await rejectingRelayer.relayerLift(bridge.target, gasCost, liftAmount, user.address, probePermit.v, probePermit.r, probePermit.s, false);
+
+      const balanceAfterProbe = await bridge.relayerBalance(rejectingRelayer.target);
+      const observedLiftTxCost = balanceAfterProbe - balanceBeforeProbe;
+      expect(observedLiftTxCost).to.be.greaterThan(0);
+
+      for (let i = 0; i < 2; i++) {
+        const permit = await getPermit(usdc, user, bridge, liftAmount, ethers.MaxUint256);
+
+        await rejectingRelayer.relayerLift(bridge.target, gasCost, liftAmount, user.address, permit.v, permit.r, permit.s, false);
+      }
+
+      const balanceBeforeRefundAttempt = await bridge.relayerBalance(rejectingRelayer.target);
+      expect(balanceBeforeRefundAttempt).to.be.greaterThan(1);
+
+      const refundBalance = balanceBeforeRefundAttempt + observedLiftTxCost - 1n;
+      const usdcEth = await bridge.usdcEth();
+      const minEthOut = (refundBalance * usdcEth * 987n) / 1000n;
+      const ethOut = minEthOut + 1n;
+
+      await pool.setSwapResult(refundBalance, -ethOut, ethOut);
+
+      const refundPermit = await getPermit(usdc, user, bridge, liftAmount, ethers.MaxUint256);
+
+      const tx = await rejectingRelayer.relayerLift(bridge.target, gasCost, liftAmount, user.address, refundPermit.v, refundPermit.r, refundPermit.s, true);
+      const receipt = await tx.wait();
+
+      const refundFailed = getBridgeLog(receipt, 'LogRefundFailed');
+      expect(refundFailed).to.not.equal(undefined);
+      expect(refundFailed.args.reason).to.equal(bridge.interface.getError('RefundRejected').selector);
+
+      const balanceAfterRefundAttempt = await bridge.relayerBalance(rejectingRelayer.target);
+
+      expect(balanceAfterRefundAttempt).to.be.greaterThan(1);
+      expect(balanceAfterRefundAttempt).to.be.greaterThanOrEqual(balanceBeforeRefundAttempt);
     });
   });
 });
