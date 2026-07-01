@@ -338,6 +338,22 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
   }
 
   /**
+   * @dev permitLift variant for PRD tokens only.
+   *
+   * @param t2PubKey Destination T2 public key.
+   * @param amount Amount requested for lifting.
+   * @param deadline Permit deadline.
+   * @param v Signature v value.
+   * @param r Signature r value.
+   * @param s Signature s value.
+   */
+  function permitLiftPRD(bytes32 t2PubKey, uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external whenNotPaused nonReentrant checkAddress(msg.sender) {
+    if (t2PubKey == bytes32(0)) revert InvalidT2Key();
+    _tryPermit(PRD, msg.sender, amount, deadline, v, r, s);
+    emit LogLifted(PRD, t2PubKey, _lift(msg.sender, PRD, amount));
+  }
+
+  /**
    * @dev Lifts approved USDC or USDT tokens to the caller's derived prediction market T2 account.
    *
    * @param token Token to lift - USDC or USDT only.
