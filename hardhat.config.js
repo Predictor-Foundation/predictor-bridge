@@ -40,6 +40,17 @@ export default defineConfig({
         accountsBalance: '5000000000000000000000000'
       }
     },
+    mainnetFork: {
+      type: 'edr-simulated',
+      chainId: 1,
+      forking: {
+        url: MAINNET_RPC_URL,
+        ...(process.env.MAINNET_FORK_BLOCK_NUMBER ? { blockNumber: Number(process.env.MAINNET_FORK_BLOCK_NUMBER) } : {})
+      },
+      accounts: {
+        accountsBalance: '5000000000000000000000000'
+      }
+    },
     sepolia: {
       type: 'http',
       url: SEPOLIA_RPC_URL,

@@ -39,6 +39,8 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
   uint256 private constant ETH_SIG_LENGTH = 65;
   uint256 private constant LOWER_DATA_LENGTH = 20 + 32 + 20 + 4 + 32 + 8;
   uint256 private constant MAX_AUTHORS = 255;
+  uint256 private constant MAX_RELAYER_LIFT_GAS_COST = 180000;
+  uint256 private constant MAX_RELAYER_LOWER_GAS_COST = 200000;
   uint256 private constant MIN_AUTHORS = 4;
   uint256 private constant MINIMUM_LOWER_PROOF_LENGTH = LOWER_DATA_LENGTH + ETH_SIG_LENGTH * 2;
   uint160 private constant MIN_SQRT_RATIO = 4295128739;
@@ -103,6 +105,8 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
   error AmountTooLow(); // 0x1fbaba35
   error BadConfirmations(); // 0x409c8aac
   error CannotChangeT2Key(bytes32); // 0x140c6815
+  error ExceedsLiftGasCostLimit(); // 0xa23e6842
+  error ExceedsLowerGasCostLimit(); //0x466bcd69
   error InvalidCaller(); // 0x48f5c3ed
   error InvalidOracleData(); // 0xf1bccc72
   error InvalidProof(); // 0x09bde339
@@ -435,10 +439,11 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
   ) external whenNotPaused nonReentrant checkAddress(user) {
     int256 balance = relayerBalance[msg.sender];
     if (balance < 1) revert RelayerOnly();
+    if (gasCost > MAX_RELAYER_LIFT_GAS_COST) revert ExceedsLiftGasCostLimit();
 
     uint256 usdcEthPrice = usdcEth();
     uint256 txCost = (gasCost * tx.gasprice) / usdcEthPrice;
-    if (txCost > amount) revert AmountTooLow();
+    if (txCost >= amount) revert AmountTooLow();
 
     _tryPermit(USDC, user, amount, type(uint256).max, v, r, s);
     if (!IERC20(USDC).transferFrom(user, address(this), amount)) revert TransferFromFailed();
@@ -466,13 +471,14 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
   function relayerLower(uint256 gasCost, bytes calldata lowerProof, bool triggerRefund) external whenNotPaused nonReentrant {
     int256 balance = relayerBalance[msg.sender];
     if (balance < 1) revert RelayerOnly();
+    if (gasCost > MAX_RELAYER_LOWER_GAS_COST) revert ExceedsLowerGasCostLimit();
 
     (address token, uint256 amount, address user, uint32 lowerId, bytes32 t2Sender, uint64 t2Timestamp) = _extractLowerData(lowerProof);
     if (token != USDC) revert InvalidToken();
 
     uint256 usdcEthPrice = usdcEth();
     uint256 txCost = (gasCost * tx.gasprice) / usdcEthPrice;
-    if (txCost > amount) revert AmountTooLow();
+    if (txCost >= amount) revert AmountTooLow();
 
     _processLower(token, amount, user, lowerId, t2Sender, t2Timestamp, lowerProof);
 

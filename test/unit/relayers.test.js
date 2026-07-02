@@ -1,4 +1,17 @@
-import { ONE_USD, SANCTIONED_ADDRESS, createLowerProof, deployFixture, expect, getAccounts, getEthers, getPermit, init, randomBytes32 } from '../helper.js';
+import {
+  MAX_RELAYER_LIFT_GAS_COST,
+  MAX_RELAYER_LOWER_GAS_COST,
+  ONE_USD,
+  SANCTIONED_ADDRESS,
+  createLowerProof,
+  deployFixture,
+  expect,
+  getAccounts,
+  getEthers,
+  getPermit,
+  init,
+  randomBytes32
+} from '../helper.js';
 
 describe('PredictorBridge relayer tests', function () {
   let ethers;
@@ -180,6 +193,15 @@ describe('PredictorBridge relayer tests', function () {
       );
     });
 
+    it('rejects relayerLift when gasCost exceeds the lift gas cost limit', async () => {
+      const amount = 10n * ONE_USD;
+      const permit = await getPermit(usdc, user, bridge, amount, ethers.MaxUint256);
+
+      await expect(
+        bridge.connect(relayer1).relayerLift(MAX_RELAYER_LIFT_GAS_COST + 1n, amount, user.address, permit.v, permit.r, permit.s, false)
+      ).to.be.revertedWithCustomError(bridge, 'ExceedsLiftGasCostLimit');
+    });
+
     it('rejects invalid permit', async () => {
       const amount = 1n * ONE_USD;
       const permit = await getPermit(usdc, user, bridge, amount, ethers.MaxUint256);
@@ -235,6 +257,13 @@ describe('PredictorBridge relayer tests', function () {
       const [lowerProof] = await createLowerProof(bridge, usdc, amount, user.address, randomBytes32());
 
       await expect(bridge.relayerLower(1n, lowerProof, false)).to.be.revertedWithCustomError(bridge, 'RelayerOnly');
+    });
+
+    it('rejects relayerLower when gasCost exceeds the lower gas cost limit', async () => {
+      const amount = 10n * ONE_USD;
+      const [lowerProof] = await createLowerProof(bridge, usdc, amount, user.address, randomBytes32());
+
+      await expect(bridge.connect(relayer1).relayerLower(MAX_RELAYER_LOWER_GAS_COST + 1n, lowerProof, false)).to.be.revertedWithCustomError(bridge, 'ExceedsLowerGasCostLimit');
     });
 
     it('rejects used lower proof', async () => {
@@ -377,7 +406,7 @@ describe('PredictorBridge relayer tests', function () {
       await bridge.registerRelayer(rejectingRelayer.target);
 
       const liftAmount = 50n * ONE_USD;
-      const gasCost = 1_000_000n;
+      const gasCost = 175_000n;
 
       await usdc.transfer(user.address, liftAmount * 5n);
 

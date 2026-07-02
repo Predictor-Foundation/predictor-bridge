@@ -21,11 +21,7 @@ const bridgeConfig = {
     usdc: '',
     usdt: '',
     weth: '',
-    relayers: [
-      '0xe7BBa60d3352CbAa7e1e1A7487183c68B82A35b2',
-      '0xdf2918dE413E2Cd1C3dbb972c8377C063E6F092c',
-      '0x40aF08546D41E119db1f70744ef4bE485Be7Cb2A'
-    ],
+    relayers: ['0xe7BBa60d3352CbAa7e1e1A7487183c68B82A35b2', '0xdf2918dE413E2Cd1C3dbb972c8377C063E6F092c', '0x40aF08546D41E119db1f70744ef4bE485Be7Cb2A'],
     authors: [
       {
         ethAddress: '0x073411c96F59ef379DE620fd3226eA3f222af1b9',
@@ -65,11 +61,7 @@ const bridgeConfig = {
     usdc: '0xe7CEFa13a4645EB168F227f5908664A3C5dA0E15',
     usdt: '0x8A2C6d75b8d0a920bA68a707B1A205bcB9c9173F',
     weth: '0x1aEDb2026a192d439A06a0d0C7C6FB6735724bAB',
-    relayers: [
-      '0xCaf887dC7dB6B4b44D9a97e46998Ca4dB6f767Ea',
-      '0x29cB5A57D62bA22bbb6a5Efe3fD520F03c840291',
-      '0xA39239acB1E7faA1419482e767A1195b1f81F82c'
-    ],
+    relayers: ['0xCaf887dC7dB6B4b44D9a97e46998Ca4dB6f767Ea', '0x29cB5A57D62bA22bbb6a5Efe3fD520F03c840291', '0xA39239acB1E7faA1419482e767A1195b1f81F82c'],
     authors: [
       {
         ethAddress: '0xcc66EC55E0cdF70e1549beBE969e5988603Ef960',
