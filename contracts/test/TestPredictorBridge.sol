@@ -1,17 +1,24 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.35;
 
-import './PredictorBridge.sol';
+import '../PredictorBridge.sol';
 
 /**
- * @dev Testnet-only variant of PredictorBridge that adds owner-gated resets for use between test runs.
- * Production behaviour is inherited unchanged.
+ * @dev Non-mainnet variant of PredictorBridge used by dev/testnet deployments.
+ * Core bridge behaviour is inherited unchanged; this implementation cannot be deployed on Ethereum mainnet.
+ *
+ * The test bridge adds owner-gated reset functions and an initializer variant that registers the
+ * configured relayers during initialization. This keeps the audited
+ * production bridge initializer unchanged while still supporting non-deployer owners on test networks.
  */
-contract PredictorBridgeResettable is PredictorBridge {
+contract TestPredictorBridge is PredictorBridge {
   event LogReset(uint32 indexed nonce);
   event LogAuthorsReset();
 
+  uint256 private constant ETHEREUM_MAINNET_CHAIN_ID = 1;
   uint32 public resetNonce;
+
+  error TestBridgeNotForUseOnMainnet();
 
   constructor(
     address feed,
@@ -21,7 +28,38 @@ contract PredictorBridgeResettable is PredictorBridge {
     address usdc,
     address usdt,
     address weth
-  ) PredictorBridge(feed, pool, sanctions, prd, usdc, usdt, weth) {}
+  ) PredictorBridge(feed, pool, sanctions, prd, usdc, usdt, weth) {
+    if (block.chainid == ETHEREUM_MAINNET_CHAIN_ID) revert TestBridgeNotForUseOnMainnet();
+  }
+
+  /**
+   * @dev Initialises the test bridge, seeds authors, registers relayers, and assigns ownership.
+   * This intentionally does not alter PredictorBridge's audited initializer.
+   *
+   * @param t1Addresses Initial author T1 addresses.
+   * @param t1PubKeysLHS Left-hand 32 bytes of each uncompressed T1 public key.
+   * @param t1PubKeysRHS Right-hand 32 bytes of each uncompressed T1 public key.
+   * @param t2PubKeys Initial author T2 public keys.
+   * @param owner_ Initial contract owner.
+   * @param relayers Initial relayer addresses.
+   */
+  function initialize(
+    address[] calldata t1Addresses,
+    bytes32[] calldata t1PubKeysLHS,
+    bytes32[] calldata t1PubKeysRHS,
+    bytes32[] calldata t2PubKeys,
+    address owner_,
+    address[] calldata relayers
+  ) external initializer {
+    __Ownable_init(owner_);
+    __Ownable2Step_init();
+    __Pausable_init();
+
+    nextAuthorId = 1;
+
+    _initialiseAuthors(t1Addresses, t1PubKeysLHS, t1PubKeysRHS, t2PubKeys);
+    _initialiseRelayers(relayers);
+  }
 
   /**
    * @dev Wipes per-run sparse bridge state. Lower ids and T2 tx ids are issued consecutively, so the
@@ -60,8 +98,10 @@ contract PredictorBridgeResettable is PredictorBridge {
     }
 
     unchecked {
-      emit LogReset(++resetNonce);
+      ++resetNonce;
     }
+
+    emit LogReset(resetNonce);
   }
 
   /**
@@ -92,5 +132,24 @@ contract PredictorBridgeResettable is PredictorBridge {
     _initialiseAuthors(t1Addresses, t1PubKeysLHS, t1PubKeysRHS, t2PubKeys);
 
     emit LogAuthorsReset();
+  }
+
+  function _initialiseRelayers(address[] calldata relayers) private {
+    for (uint256 i; i < relayers.length; ) {
+      _initialiseRelayer(relayers[i]);
+
+      unchecked {
+        ++i;
+      }
+    }
+  }
+
+  function _initialiseRelayer(address relayer) private {
+    if (relayer == address(0)) revert AddressIsZero();
+    if (relayerBalance[relayer] != 0) revert RelayerAlreadyRegistered();
+
+    relayerBalance[relayer] = 1;
+
+    emit LogRelayerRegistered(relayer);
   }
 }

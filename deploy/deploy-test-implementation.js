@@ -5,8 +5,8 @@ async function main() {
   const env = getEnv();
   const { ethers, networkName } = await network.create();
 
-  if (env !== 'mainnet') {
-    throw new Error('deploy-bridge-implementation.js is mainnet-only. Use deploy-test-bridge-implementation.js for dev/testnet.');
+  if (env === 'mainnet') {
+    throw new Error('deploy-test-bridge-implementation.js is only for dev/testnet. Use deploy-bridge-implementation.js for mainnet.');
   }
 
   checkEnvMatchesNetwork(env, networkName);
@@ -19,20 +19,20 @@ async function main() {
   console.log(`Deployer: ${deployer.address}`);
   console.log(`Env: ${env}`);
   console.log(`Network: ${networkName}`);
-  console.log('Contract: PredictorBridge');
+  console.log('Contract: TestPredictorBridge');
   console.log('Deploying: implementation');
 
-  const Bridge = await ethers.getContractFactory('PredictorBridge');
+  const Bridge = await ethers.getContractFactory('TestPredictorBridge');
   const implementation = await Bridge.deploy(...bridgeArgs);
   await implementation.waitForDeployment();
   const implementationAddress = await implementation.getAddress();
 
-  await verifyContract(hre, implementationAddress, bridgeArgs, 'PredictorBridge implementation');
+  await verifyContract(hre, implementationAddress, bridgeArgs, 'TestPredictorBridge implementation');
 
   const afterBalance = await ethers.provider.getBalance(deployer.address);
   printBalances(ethers, beforeBalance, afterBalance);
 
-  console.log(`\nNew PredictorBridge Implementation: ${implementationAddress}`);
+  console.log(`\nNew TestPredictorBridge Implementation: ${implementationAddress}`);
   console.log('\nDone.');
 }
 

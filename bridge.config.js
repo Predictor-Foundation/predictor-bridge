@@ -1,6 +1,6 @@
 const bridgeConfig = {
   mainnet: {
-    owner: '0x0000000000000000000000000000000000000000',
+    owner: '',
     feed: '0x986b5E1e1755e3C2440e960477f25201B0a8bbD4',
     pool: '0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640',
     sanctions: '0x40C57923924B5c5c5455c48D93317139ADDaC8fb',
@@ -10,16 +10,22 @@ const bridgeConfig = {
     weth: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
     authors: []
   },
-
   testnet: {
     owner: '0x43517f5a08152affd4e5395272C608d6e6064Cfd',
-    feed: '0xA6B8979480263424C74d64EcFC552c39Fe3a03f3',
-    pool: '0xA6B8979480263424C74d64EcFC552c39Fe3a03f3',
-    sanctions: '0xA6B8979480263424C74d64EcFC552c39Fe3a03f3',
-    prd: '0xDF1E384d36A6EE55a1b3c89bF6ec720fC5c611EB',
-    usdc: '0xA6B8979480263424C74d64EcFC552c39Fe3a03f3',
-    usdt: '0xc25EEEDd37b9BE1d9a186d31F6280e6B6dc0092e',
-    weth: '0xA6B8979480263424C74d64EcFC552c39Fe3a03f3',
+    bridge: '',
+    tok: '',
+    feed: '',
+    pool: '',
+    sanctions: '',
+    prd: '',
+    usdc: '',
+    usdt: '',
+    weth: '',
+    relayers: [
+      '0xe7BBa60d3352CbAa7e1e1A7487183c68B82A35b2',
+      '0xdf2918dE413E2Cd1C3dbb972c8377C063E6F092c',
+      '0x40aF08546D41E119db1f70744ef4bE485Be7Cb2A'
+    ],
     authors: [
       {
         ethAddress: '0x073411c96F59ef379DE620fd3226eA3f222af1b9',
@@ -48,16 +54,22 @@ const bridgeConfig = {
       }
     ]
   },
-
   dev: {
-    owner: '0x43517f5a08152affd4e5395272C608d6e6064Cfd',
-    feed: '0x9271D49FC2467419cad65Dd405baDc60d989c75A',
-    pool: '0x9271D49FC2467419cad65Dd405baDc60d989c75A',
-    sanctions: '0x9271D49FC2467419cad65Dd405baDc60d989c75A',
-    prd: '0xDF1E384d36A6EE55a1b3c89bF6ec720fC5c611EB',
-    usdc: '0x9271D49FC2467419cad65Dd405baDc60d989c75A',
-    usdt: '0xb7E2e5A4161036Af058336F07ADAbC9aE932FCf5',
-    weth: '0x9271D49FC2467419cad65Dd405baDc60d989c75A',
+    owner: '0xeA2B5E2C6dc45C4266Fc45faaB2C26b1610C57D3',
+    bridge: '0x651590dA504f5E96055A750290Df98733DCAa636',
+    tok: '0x82c852d213EB935f32775FdAeC49b83D299FF1F7',
+    feed: '0x1aEDb2026a192d439A06a0d0C7C6FB6735724bAB',
+    pool: '0x1aEDb2026a192d439A06a0d0C7C6FB6735724bAB',
+    sanctions: '0x1aEDb2026a192d439A06a0d0C7C6FB6735724bAB',
+    prd: '0x7C2e0b47dca6Ac467dfCF4c0842C0e2F8b10468A',
+    usdc: '0xe7CEFa13a4645EB168F227f5908664A3C5dA0E15',
+    usdt: '0x8A2C6d75b8d0a920bA68a707B1A205bcB9c9173F',
+    weth: '0x1aEDb2026a192d439A06a0d0C7C6FB6735724bAB',
+    relayers: [
+      '0xCaf887dC7dB6B4b44D9a97e46998Ca4dB6f767Ea',
+      '0x29cB5A57D62bA22bbb6a5Efe3fD520F03c840291',
+      '0xA39239acB1E7faA1419482e767A1195b1f81F82c'
+    ],
     authors: [
       {
         ethAddress: '0xcc66EC55E0cdF70e1549beBE969e5988603Ef960',

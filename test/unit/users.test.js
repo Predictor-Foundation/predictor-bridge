@@ -27,6 +27,7 @@ describe('PredictorBridge user tests', function () {
   let user;
   let bridge;
   let prd;
+  let permitToken;
   let token;
   let usdc;
   let usdt;
@@ -37,7 +38,7 @@ describe('PredictorBridge user tests', function () {
     await init({ numAuthors: 5 });
     ethers = getEthers();
     [owner, user] = getAccounts();
-    ({ bridge, sanctions, prd, token, usdc, usdt } = await deployFixture({ numAuthors: 5 }));
+    ({ bridge, sanctions, permitToken, prd, token, usdc, usdt } = await deployFixture({ numAuthors: 5 }));
     t2PubKey = await bridge.deriveT2PublicKey(owner.address);
   });
 
@@ -80,18 +81,16 @@ describe('PredictorBridge user tests', function () {
       });
 
       it('lifts via permitLift', async () => {
-        const permit = await getPermit(token, owner, bridge, amount);
-        await expectLifted(bridge.permitLift(token.target, t2PubKey, amount, permit.deadline, permit.v, permit.r, permit.s), token);
+        const permit = await getPermit(permitToken, owner, bridge, amount);
+        await expectLifted(bridge.permitLift(permitToken.target, t2PubKey, amount, permit.deadline, permit.v, permit.r, permit.s), permitToken);
       });
 
       it('lifts via permitLift when permit was already consumed and allowance exists', async () => {
-        const permit = await getPermit(token, owner, bridge, amount);
+        const permit = await getPermit(permitToken, owner, bridge, amount);
+        await permitToken.permit(owner.address, bridge.target, amount, permit.deadline, permit.v, permit.r, permit.s);
+        expect(await permitToken.allowance(owner.address, bridge.target)).to.equal(amount);
 
-        await token.permit(owner.address, bridge.target, amount, permit.deadline, permit.v, permit.r, permit.s);
-
-        expect(await token.allowance(owner.address, bridge.target)).to.equal(amount);
-
-        await expectLifted(bridge.permitLift(token.target, t2PubKey, amount, permit.deadline, permit.v, permit.r, permit.s), token);
+        await expectLifted(bridge.permitLift(permitToken.target, t2PubKey, amount, permit.deadline, permit.v, permit.r, permit.s), permitToken);
       });
 
       it('lifts PRD via permitLiftPRD', async () => {
@@ -101,7 +100,6 @@ describe('PredictorBridge user tests', function () {
 
       it('lifts PRD via permitLiftPRD when permit was already consumed and allowance exists', async () => {
         const permit = await getPermit(prd, owner, bridge, amount);
-
         await prd.permit(owner.address, bridge.target, amount, permit.deadline, permit.v, permit.r, permit.s);
 
         expect(await prd.allowance(owner.address, bridge.target)).to.equal(amount);
@@ -172,8 +170,8 @@ describe('PredictorBridge user tests', function () {
       });
 
       it('rejects zero amount for permitLift', async () => {
-        const permit = await getPermit(token, owner, bridge, 0);
-        await expect(bridge.permitLift(token.target, t2PubKey, 0, permit.deadline, permit.v, permit.r, permit.s)).to.be.revertedWithCustomError(bridge, 'AmountIsZero');
+        const permit = await getPermit(permitToken, owner, bridge, 0);
+        await expect(bridge.permitLift(permitToken.target, t2PubKey, 0, permit.deadline, permit.v, permit.r, permit.s)).to.be.revertedWithCustomError(bridge, 'AmountIsZero');
       });
 
       it('rejects zero amount for permitLiftPRD', async () => {
@@ -209,8 +207,8 @@ describe('PredictorBridge user tests', function () {
       });
 
       it('rejects zero t2 key for permitLift', async () => {
-        const permit = await getPermit(token, owner, bridge, amount);
-        await expect(bridge.permitLift(token.target, ethers.ZeroHash, amount, permit.deadline, permit.v, permit.r, permit.s)).to.be.revertedWithCustomError(
+        const permit = await getPermit(permitToken, owner, bridge, amount);
+        await expect(bridge.permitLift(permitToken.target, ethers.ZeroHash, amount, permit.deadline, permit.v, permit.r, permit.s)).to.be.revertedWithCustomError(
           bridge,
           'InvalidT2Key'
         );
@@ -243,8 +241,11 @@ describe('PredictorBridge user tests', function () {
       });
 
       it('rejects permitLift when paused', async () => {
-        const permit = await getPermit(token, owner, bridge, amount);
-        await expect(bridge.permitLift(token.target, t2PubKey, amount, permit.deadline, permit.v, permit.r, permit.s)).to.be.revertedWithCustomError(bridge, 'EnforcedPause');
+        const permit = await getPermit(permitToken, owner, bridge, amount);
+        await expect(bridge.permitLift(permitToken.target, t2PubKey, amount, permit.deadline, permit.v, permit.r, permit.s)).to.be.revertedWithCustomError(
+          bridge,
+          'EnforcedPause'
+        );
       });
 
       it('rejects permitLiftPRD when paused', async () => {
@@ -294,7 +295,7 @@ describe('PredictorBridge user tests', function () {
       });
 
       it('rejects exceeding token limit', async () => {
-        const Huge = await ethers.getContractFactory('MockERC20Permit');
+        const Huge = await ethers.getContractFactory('TestERC20Permit');
         const huge = await Huge.deploy('Huge', 'HUGE', 18, owner.address, 2n ** 140n);
         const max = 2n ** 128n - 1n;
 
@@ -308,9 +309,9 @@ describe('PredictorBridge user tests', function () {
 
     describe('permit failure reverts', function () {
       it('rejects permitLift when permit fails and allowance is too low', async () => {
-        const permit = await getPermit(token, owner, bridge, amount);
+        const permit = await getPermit(permitToken, owner, bridge, amount);
 
-        await expect(bridge.permitLift(token.target, t2PubKey, amount, permit.deadline, 27, randomBytes32(), randomBytes32())).to.be.revertedWithCustomError(
+        await expect(bridge.permitLift(permitToken.target, t2PubKey, amount, permit.deadline, 27, randomBytes32(), randomBytes32())).to.be.revertedWithCustomError(
           bridge,
           'PermitAllowanceTooLow'
         );
@@ -345,9 +346,9 @@ describe('PredictorBridge user tests', function () {
       });
 
       it('rejects sanctioned sender for permitLift', async () => {
-        const permit = await getPermit(token, owner, bridge, amount);
+        const permit = await getPermit(permitToken, owner, bridge, amount);
         await expectBlockedFrom(SANCTIONED_ADDRESS, sanctioned =>
-          bridge.connect(sanctioned).permitLift(token.target, t2PubKey, amount, permit.deadline, permit.v, permit.r, permit.s)
+          bridge.connect(sanctioned).permitLift(permitToken.target, t2PubKey, amount, permit.deadline, permit.v, permit.r, permit.s)
         );
       });
 

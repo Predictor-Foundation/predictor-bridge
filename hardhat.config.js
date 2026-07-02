@@ -1,6 +1,7 @@
 import '@nomicfoundation/hardhat-verify';
 import { defineConfig } from 'hardhat/config';
 import hardhatToolboxMochaEthers from '@nomicfoundation/hardhat-toolbox-mocha-ethers';
+import hardhatLedgerPlugin from '@nomicfoundation/hardhat-ledger';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -10,7 +11,7 @@ const { MAINNET_LEDGER_ADDRESS, MAINNET_RPC_URL, SEPOLIA_PRIVATE_KEY, SEPOLIA_RP
 const GWEI = 1e9;
 
 export default defineConfig({
-  plugins: [hardhatToolboxMochaEthers],
+  plugins: [hardhatToolboxMochaEthers, hardhatLedgerPlugin],
   solidity: {
     compilers: [
       {
