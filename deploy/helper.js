@@ -109,7 +109,7 @@ function validateTestBridgeConfig(env) {
 
   assertAddress('owner', owner);
   validateInitConfig(env);
-  assertAddressArray('relayers', relayers);
+  assertAddressArray('relayers', relayers ?? [], true);
 
   for (const [index, author] of authors.entries()) {
     assertAddress(`authors[${index}].ethAddress`, author.ethAddress);

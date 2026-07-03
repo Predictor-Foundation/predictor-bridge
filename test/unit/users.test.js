@@ -101,7 +101,6 @@ describe('PredictorBridge user tests', function () {
       it('lifts PRD via permitLiftPRD when permit was already consumed and allowance exists', async () => {
         const permit = await getPermit(prd, owner, bridge, amount);
         await prd.permit(owner.address, bridge.target, amount, permit.deadline, permit.v, permit.r, permit.s);
-
         expect(await prd.allowance(owner.address, bridge.target)).to.equal(amount);
 
         await expectLifted(bridge.permitLiftPRD(t2PubKey, amount, permit.deadline, permit.v, permit.r, permit.s), prd);
@@ -109,7 +108,6 @@ describe('PredictorBridge user tests', function () {
 
       it('lifts via predictionMarketLift with USDC', async () => {
         const derivedT2 = await bridge.deriveT2PublicKey(owner.address);
-
         await usdc.approve(bridge.target, amount);
 
         await expectPredictionMarketLifted(bridge.predictionMarketLift(usdc.target, amount), usdc, derivedT2);
@@ -117,7 +115,6 @@ describe('PredictorBridge user tests', function () {
 
       it('lifts via predictionMarketLift with USDT', async () => {
         const derivedT2 = await bridge.deriveT2PublicKey(owner.address);
-
         await usdt.approve(bridge.target, amount);
 
         await expectPredictionMarketLifted(bridge.predictionMarketLift(usdt.target, amount), usdt, derivedT2);
@@ -125,17 +122,13 @@ describe('PredictorBridge user tests', function () {
 
       it('lifts via predictionMarketRecipientLift with USDC', async () => {
         const recipientT2 = randomBytes32();
-
         await usdc.approve(bridge.target, amount);
-
         await expectPredictionMarketLifted(bridge.predictionMarketRecipientLift(usdc.target, recipientT2, amount), usdc, recipientT2);
       });
 
       it('lifts via predictionMarketRecipientLift with USDT', async () => {
         const recipientT2 = randomBytes32();
-
         await usdt.approve(bridge.target, amount);
-
         await expectPredictionMarketLifted(bridge.predictionMarketRecipientLift(usdt.target, recipientT2, amount), usdt, recipientT2);
       });
 
@@ -149,11 +142,8 @@ describe('PredictorBridge user tests', function () {
       it('lifts via predictionMarketPermitLift when permit was already consumed and allowance exists', async () => {
         const permit = await getPermit(usdc, owner, bridge, amount);
         const derivedT2 = await bridge.deriveT2PublicKey(owner.address);
-
         await usdc.permit(owner.address, bridge.target, amount, permit.deadline, permit.v, permit.r, permit.s);
-
         expect(await usdc.allowance(owner.address, bridge.target)).to.equal(amount);
-
         await expectPredictionMarketLifted(bridge.predictionMarketPermitLift(amount, permit.deadline, permit.v, permit.r, permit.s), usdc, derivedT2);
       });
     });
