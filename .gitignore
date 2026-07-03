@@ -4,3 +4,4 @@ artifacts
 cache/
 coverage/
 types/
+**gas-report**

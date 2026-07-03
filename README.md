@@ -144,6 +144,40 @@ Also for dev/testnet the following fields all boil down to a single test contrac
 
 Therefore these must either all be empty/zero or all contain the same `TestPredictorBridgeHelper` proxy address.
 
+## Scripts
+
+### Measuring relayer gas
+
+Relayer gas costs are calculated per transaction by the external service that operates the relayers. The bridge also enforces conservative on-chain limits via `MAX_RELAYER_LIFT_GAS_COST` and `MAX_RELAYER_LOWER_GAS_COST`, so a compromised relayer key cannot submit an excessive gas-cost value and drain user USDC as relayer reimbursement.
+
+To help set those limits with realistic values, a standalone mainnet-fork script is available:
+
+```bash
+MAINNET_RPC_URL="https://..." npm run measure:relayer-gas
+```
+
+The script deploys a fresh bridge proxy on a mainnet fork using the configured mainnet dependency addresses, then measures standard and `triggerRefund` relayer calls across fresh and existing USDC account scenarios.
+
+Suggested cap values are calculated using:
+
+```text
+max standard call gas + amortised triggerRefund overhead + configured headroom
+```
+
+Useful options:
+
+```bash
+MAINNET_FORK_BLOCK_NUMBER=25452384
+SAMPLES=300
+REFUND_SAMPLES=20
+REFUND_ACCRUAL_CALLS=20
+SELECTED_REFUND_FREQUENCY=20
+HEADROOM_BPS=12500
+MEASUREMENT_TX_GAS_LIMIT=5000000
+```
+
+Generated reports are written as `relayer-gas-report-*.json` and should not be committed.
+
 ## Deployment
 
 ### Dev/testnet test bridge

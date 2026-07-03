@@ -43,12 +43,16 @@ const DEFAULT_USDC_HOLDERS = [
 ];
 
 const ONE_USDC = 1_000_000n;
-const DEFAULT_SAMPLES = 80;
-const DEFAULT_REFUND_SAMPLES = 10;
-const DEFAULT_REPORTED_GAS_COST = 350_000n;
+const DEFAULT_SAMPLES = 50;
+const DEFAULT_REFUND_SAMPLES = 5;
+const MAX_RELAYER_LIFT_GAS_COST = 180_000n;
+const MAX_RELAYER_LOWER_GAS_COST = 200_000n;
+const DEFAULT_REPORTED_LIFT_GAS_COST = MAX_RELAYER_LIFT_GAS_COST;
+const DEFAULT_REPORTED_LOWER_GAS_COST = MAX_RELAYER_LOWER_GAS_COST;
+const DEFAULT_TX_GAS_LIMIT = 5_000_000n;
 const DEFAULT_HEADROOM_BPS = 12_500n; // 25% headroom
-const DEFAULT_REFUND_ACCRUAL_CALLS = 20;
-const DEFAULT_REFUND_FREQUENCIES = [5, 10, 20, 50];
+const DEFAULT_REFUND_ACCRUAL_CALLS = 10;
+const DEFAULT_REFUND_FREQUENCIES = [10, 15, 20, 25];
 const DEFAULT_MEASURE_ACCOUNT_VARIANTS = true;
 const GAS_ROUNDING = 10_000;
 const DUMMY_SIG = {
@@ -60,6 +64,19 @@ const DUMMY_SIG = {
 function envBigInt(name, fallback) {
   const raw = process.env[name];
   return raw === undefined || raw === '' ? fallback : BigInt(raw);
+}
+
+function relayerGasCostInput(name, legacyName, fallback, maxValue) {
+  const hasSpecific = process.env[name] !== undefined && process.env[name] !== '';
+  const hasLegacy = process.env[legacyName] !== undefined && process.env[legacyName] !== '';
+  const source = hasSpecific ? name : hasLegacy ? legacyName : 'default';
+  const value = hasSpecific ? BigInt(process.env[name]) : hasLegacy ? BigInt(process.env[legacyName]) : fallback;
+
+  if (value > maxValue) {
+    throw new Error(`${source} (${value}) exceeds the on-chain gas-cost cap (${maxValue}). Lower the input or update the script constants if the contract caps change.`);
+  }
+
+  return value;
 }
 
 function envInt(name, fallback) {
@@ -120,6 +137,27 @@ async function setEthBalance(ethers, networkHelpers, address, amount) {
   await ethers.provider.send('hardhat_setBalance', [address, ethers.toBeHex(amount)]);
 }
 
+async function setAccountCode(ethers, networkHelpers, address, code = '0x') {
+  if (networkHelpers?.setCode) {
+    await networkHelpers.setCode(address, code);
+    return;
+  }
+
+  try {
+    await ethers.provider.send('hardhat_setCode', [address, code]);
+  } catch (_) {}
+}
+
+async function primeLocalEoa(ethers, networkHelpers, address, balance = 0n) {
+  await setEthBalance(ethers, networkHelpers, address, balance);
+  await setAccountCode(ethers, networkHelpers, address, '0x');
+}
+
+async function primeLocalRecipient(ethers, networkHelpers, address, balance = 0n) {
+  await setEthBalance(ethers, networkHelpers, address, balance);
+  await setAccountCode(ethers, networkHelpers, address, '0x00');
+}
+
 async function impersonate(ethers, networkHelpers, address) {
   if (networkHelpers?.impersonateAccount) {
     await networkHelpers.impersonateAccount(address);
@@ -147,7 +185,6 @@ async function findUsdcHolder(ethers, networkHelpers, usdc, requiredUsdc) {
     const signer = await impersonate(ethers, networkHelpers, candidate);
 
     try {
-      // Probe that the holder can actually transfer on this fork. The real run is fork-only.
       const [recipient] = await ethers.getSigners();
       await (await usdc.connect(signer).transfer(recipient.address, 1n)).wait();
       console.log(`Using USDC holder ${candidate} with ${formatUsdc(balance)} USDC`);
@@ -188,7 +225,7 @@ async function getPermit(ethers, usdc, owner, spender, value) {
   return { deadline, v, r, s };
 }
 
-async function deployBridgeOnFork(ethers) {
+async function deployBridgeOnFork(ethers, networkHelpers) {
   const cfg = bridgeConfig.mainnet;
   const required = ['feed', 'pool', 'sanctions', 'prd', 'usdc', 'usdt', 'weth'];
   for (const key of required) {
@@ -202,7 +239,7 @@ async function deployBridgeOnFork(ethers) {
   const authors = [];
   for (let i = 0; i < 5; i++) {
     const wallet = ethers.Wallet.createRandom().connect(ethers.provider);
-    await owner.sendTransaction({ to: wallet.address, value: ethers.parseEther('1') });
+    await primeLocalEoa(ethers, networkHelpers, wallet.address, ethers.parseEther('1'));
     authors.push(authorFromWallet(ethers, wallet));
   }
 
@@ -218,19 +255,22 @@ async function deployBridgeOnFork(ethers) {
   return { bridge, authors, implementationAddress: implementation.target };
 }
 
-async function createFundedUser(ethers, usdc, holder, amount) {
-  const [funder] = await ethers.getSigners();
+async function createFundedUser(ethers, networkHelpers, usdc, holder, amount) {
   const user = ethers.Wallet.createRandom().connect(ethers.provider);
-  await funder.sendTransaction({ to: user.address, value: ethers.parseEther('0.1') });
+  await primeLocalEoa(ethers, networkHelpers, user.address, ethers.parseEther('0.1'));
   await (await usdc.connect(holder).transfer(user.address, amount)).wait();
   return user;
 }
 
-async function createExistingFundedUser(ethers, usdc, holder, amount) {
-  const user = await createFundedUser(ethers, usdc, holder, amount);
+async function createFreshRecipient(ethers, networkHelpers) {
+  const recipient = ethers.Wallet.createRandom().connect(ethers.provider);
+  await primeLocalRecipient(ethers, networkHelpers, recipient.address, 0n);
+  return recipient;
+}
 
-  // Make the token account genuinely "existing" for USDC: its balance slot is already
-  // non-zero before measured calls, and measured transfers keep it non-zero.
+async function createExistingFundedUser(ethers, networkHelpers, usdc, holder, amount) {
+  const user = await createFundedUser(ethers, networkHelpers, usdc, holder, amount);
+
   if ((await usdc.balanceOf(user.address)) === 0n) {
     throw new Error('Existing test user was not funded with USDC');
   }
@@ -238,14 +278,10 @@ async function createExistingFundedUser(ethers, usdc, holder, amount) {
   return user;
 }
 
-async function createExistingUsdcRecipient(ethers, usdc, holder) {
+async function createExistingUsdcRecipient(ethers, networkHelpers, usdc, holder) {
   const recipient = ethers.Wallet.createRandom().connect(ethers.provider);
+  await primeLocalRecipient(ethers, networkHelpers, recipient.address, ethers.parseEther('0.01'));
   await (await usdc.connect(holder).transfer(recipient.address, ONE_USDC)).wait();
-
-  // ETH is not required to receive ERC-20 tokens, but funding it makes traces easier to
-  // inspect manually if needed. This transfer is outside the measured transaction.
-  const [funder] = await ethers.getSigners();
-  await funder.sendTransaction({ to: recipient.address, value: ethers.parseEther('0.01') });
 
   return recipient;
 }
@@ -307,6 +343,12 @@ function roundUp(value, rounding = GAS_ROUNDING) {
 
 function withHeadroom(value, headroomBps) {
   return Number((BigInt(Math.ceil(value)) * headroomBps + 9_999n) / 10_000n);
+}
+
+function formatHeadroom(headroomBps) {
+  const extraBps = headroomBps - 10_000n;
+  const sign = extraBps >= 0n ? '+' : '';
+  return `${sign}${Number(extraBps) / 100}% (${Number(headroomBps) / 10_000}x)`;
 }
 
 function summarize(values, headroomBps) {
@@ -407,26 +449,28 @@ function printRefundAnalysis(title, baseGas, triggerGas, frequencies, headroomBp
 
 async function runRelayerLiftSample({
   ethers,
+  networkHelpers,
   usdc,
   holder,
   bridge,
   relayer,
   liftAmount,
   reportedGasCost,
+  txGasLimit,
   liftMode,
   triggerRefund,
   user,
   userKind = 'fresh-holder',
   approveEachTime = true
 }) {
-  const sampleUser = user ?? (await createFundedUser(ethers, usdc, holder, liftAmount));
+  const sampleUser = user ?? (await createFundedUser(ethers, networkHelpers, usdc, holder, liftAmount));
   const refundPart = triggerRefund ? '.refund' : '';
 
   if (liftMode === 'permit') {
     const permit = await getPermit(ethers, usdc, sampleUser, bridge.target, liftAmount);
     return runTx(
       `relayerLift${refundPart}.${userKind}.permit`,
-      bridge.connect(relayer).relayerLift(reportedGasCost, liftAmount, sampleUser.address, permit.v, permit.r, permit.s, triggerRefund)
+      bridge.connect(relayer).relayerLift(reportedGasCost, liftAmount, sampleUser.address, permit.v, permit.r, permit.s, triggerRefund, { gasLimit: txGasLimit })
     );
   }
 
@@ -436,37 +480,42 @@ async function runRelayerLiftSample({
 
   return runTx(
     `relayerLift${refundPart}.${userKind}.allowance`,
-    bridge.connect(relayer).relayerLift(reportedGasCost, liftAmount, sampleUser.address, DUMMY_SIG.v, DUMMY_SIG.r, DUMMY_SIG.s, triggerRefund)
+    bridge.connect(relayer).relayerLift(reportedGasCost, liftAmount, sampleUser.address, DUMMY_SIG.v, DUMMY_SIG.r, DUMMY_SIG.s, triggerRefund, { gasLimit: txGasLimit })
   );
 }
 
 async function runRelayerLowerSample({
   ethers,
+  networkHelpers,
   bridge,
   authors,
   relayer,
   token,
   lowerAmount,
   reportedGasCost,
+  txGasLimit,
   lowerId,
   triggerRefund,
   recipient,
   recipientKind = 'fresh-recipient'
 }) {
-  const sampleRecipient = recipient ?? ethers.Wallet.createRandom().connect(ethers.provider);
+  const sampleRecipient = recipient ?? (await createFreshRecipient(ethers, networkHelpers));
   const lowerProof = await createLowerProof(ethers, bridge, authors, token, lowerAmount, sampleRecipient.address, lowerId);
   const refundPart = triggerRefund ? '.refund' : '';
-  return runTx(`relayerLower${refundPart}.${recipientKind}`, bridge.connect(relayer).relayerLower(reportedGasCost, lowerProof, triggerRefund));
+  return runTx(`relayerLower${refundPart}.${recipientKind}`, bridge.connect(relayer).relayerLower(reportedGasCost, lowerProof, triggerRefund, { gasLimit: txGasLimit }));
 }
 
-async function detectLiftMode({ ethers, usdc, holder, bridge, relayer, liftAmount, reportedGasCost, liftModeEnv }) {
+async function detectLiftMode({ ethers, networkHelpers, usdc, holder, bridge, relayer, liftAmount, reportedGasCost, txGasLimit, liftModeEnv }) {
   if (liftModeEnv !== 'auto') return liftModeEnv;
 
-  const user = await createFundedUser(ethers, usdc, holder, liftAmount);
+  const user = await createFundedUser(ethers, networkHelpers, usdc, holder, liftAmount);
   const permit = await getPermit(ethers, usdc, user, bridge.target, liftAmount);
 
   try {
-    await runTx('relayerLift.permit.probe', bridge.connect(relayer).relayerLift(reportedGasCost, liftAmount, user.address, permit.v, permit.r, permit.s, false));
+    await runTx(
+      'relayerLift.permit.probe',
+      bridge.connect(relayer).relayerLift(reportedGasCost, liftAmount, user.address, permit.v, permit.r, permit.s, false, { gasLimit: txGasLimit })
+    );
     return 'permit';
   } catch (err) {
     console.log(`Permit path failed on this fork (${shortError(err)}). Falling back to allowance path for lift samples.`);
@@ -474,10 +523,22 @@ async function detectLiftMode({ ethers, usdc, holder, bridge, relayer, liftAmoun
   }
 }
 
-async function preloadRelayerBalanceWithLowers({ ethers, bridge, authors, relayer, token, lowerAmount, reportedGasCost, startLowerId, calls }) {
+async function preloadRelayerBalanceWithLowers({ ethers, networkHelpers, bridge, authors, relayer, token, lowerAmount, reportedGasCost, txGasLimit, startLowerId, calls }) {
   let nextLowerId = startLowerId;
   for (let i = 0; i < calls; i++) {
-    await runRelayerLowerSample({ ethers, bridge, authors, relayer, token, lowerAmount, reportedGasCost, lowerId: nextLowerId++, triggerRefund: false });
+    await runRelayerLowerSample({
+      ethers,
+      networkHelpers,
+      bridge,
+      authors,
+      relayer,
+      token,
+      lowerAmount,
+      reportedGasCost,
+      txGasLimit,
+      lowerId: nextLowerId++,
+      triggerRefund: false
+    });
   }
 
   return nextLowerId;
@@ -492,7 +553,9 @@ async function main() {
 
   const samples = envInt('SAMPLES', DEFAULT_SAMPLES);
   const refundSamples = envInt('REFUND_SAMPLES', DEFAULT_REFUND_SAMPLES);
-  const reportedGasCost = envBigInt('RELAYER_GAS_COST_INPUT', DEFAULT_REPORTED_GAS_COST);
+  const reportedLiftGasCost = relayerGasCostInput('RELAYER_LIFT_GAS_COST_INPUT', 'RELAYER_GAS_COST_INPUT', DEFAULT_REPORTED_LIFT_GAS_COST, MAX_RELAYER_LIFT_GAS_COST);
+  const reportedLowerGasCost = relayerGasCostInput('RELAYER_LOWER_GAS_COST_INPUT', 'RELAYER_GAS_COST_INPUT', DEFAULT_REPORTED_LOWER_GAS_COST, MAX_RELAYER_LOWER_GAS_COST);
+  const txGasLimit = envBigInt('MEASUREMENT_TX_GAS_LIMIT', DEFAULT_TX_GAS_LIMIT);
   const liftAmount = usdcAmount('LIFT_AMOUNT_USDC', 1_000);
   const lowerAmount = usdcAmount('LOWER_AMOUNT_USDC', 100);
   const headroomBps = envBigInt('HEADROOM_BPS', DEFAULT_HEADROOM_BPS);
@@ -513,7 +576,7 @@ async function main() {
   const requiredUsdc = BigInt(measuredLiftCalls) * liftAmount + BigInt(measuredLowerCalls) * lowerAmount + 10_000n * ONE_USDC;
   const holder = await findUsdcHolder(ethers, networkHelpers, usdc, requiredUsdc);
 
-  const { bridge, authors, implementationAddress } = await deployBridgeOnFork(ethers);
+  const { bridge, authors, implementationAddress } = await deployBridgeOnFork(ethers, networkHelpers);
   const [owner, relayer] = await ethers.getSigners();
   await (await bridge.connect(owner).registerRelayer(relayer.address)).wait();
 
@@ -524,10 +587,12 @@ async function main() {
   console.log(`USDC: ${cfg.usdc}`);
   console.log(`Samples per standard operation: ${samples}`);
   console.log(`Samples per triggerRefund operation: ${measureRefunds ? refundSamples : 0}`);
-  console.log(`Reported gasCost input: ${reportedGasCost}`);
+  console.log(`Reported lift gasCost input: ${reportedLiftGasCost}`);
+  console.log(`Reported lower gasCost input: ${reportedLowerGasCost}`);
+  console.log(`Measurement tx gas limit: ${txGasLimit}`);
   console.log(`Lift amount: ${formatUsdc(liftAmount)} USDC`);
   console.log(`Lower amount: ${formatUsdc(lowerAmount)} USDC`);
-  console.log(`Headroom: ${Number(headroomBps) / 100}%`);
+  console.log(`Headroom: ${formatHeadroom(headroomBps)}`);
   console.log(`Refund accrual calls before each triggerRefund sample: ${measureRefunds ? refundAccrualCalls - 1 : 0}`);
   console.log(`Refund cadence scenarios: ${refundFrequencies.map(v => `1 in ${v}`).join(', ')}`);
   console.log(`Account variants: ${measureAccountVariants ? 'fresh and existing/warmed' : 'fresh only'}`);
@@ -545,11 +610,11 @@ async function main() {
   const lowerExistingRecipientRefundGas = [];
   let nextLowerId = 1;
 
-  const liftMode = await detectLiftMode({ ethers, usdc, holder, bridge, relayer, liftAmount, reportedGasCost, liftModeEnv });
+  const liftMode = await detectLiftMode({ ethers, networkHelpers, usdc, holder, bridge, relayer, liftAmount, reportedGasCost: reportedLiftGasCost, txGasLimit, liftModeEnv });
   const existingLiftUser = measureAccountVariants
-    ? await createExistingFundedUser(ethers, usdc, holder, BigInt(samples + refundSamples + 5) * liftAmount + ONE_USDC)
+    ? await createExistingFundedUser(ethers, networkHelpers, usdc, holder, BigInt(samples + refundSamples + 5) * liftAmount + ONE_USDC)
     : undefined;
-  const existingLowerRecipient = measureAccountVariants ? await createExistingUsdcRecipient(ethers, usdc, holder) : undefined;
+  const existingLowerRecipient = measureAccountVariants ? await createExistingUsdcRecipient(ethers, networkHelpers, usdc, holder) : undefined;
 
   if (measureAccountVariants && liftMode === 'allowance') {
     await (await usdc.connect(existingLiftUser).approve(bridge.target, ethers.MaxUint256)).wait();
@@ -559,12 +624,14 @@ async function main() {
   for (let i = 0; i < samples; i++) {
     const result = await runRelayerLiftSample({
       ethers,
+      networkHelpers,
       usdc,
       holder,
       bridge,
       relayer,
       liftAmount,
-      reportedGasCost,
+      reportedGasCost: reportedLiftGasCost,
+      txGasLimit,
       liftMode,
       triggerRefund: false,
       userKind: 'fresh-holder'
@@ -578,12 +645,14 @@ async function main() {
     for (let i = 0; i < samples; i++) {
       const result = await runRelayerLiftSample({
         ethers,
+        networkHelpers,
         usdc,
         holder,
         bridge,
         relayer,
         liftAmount,
-        reportedGasCost,
+        reportedGasCost: reportedLiftGasCost,
+        txGasLimit,
         liftMode,
         triggerRefund: false,
         user: existingLiftUser,
@@ -599,12 +668,14 @@ async function main() {
   for (let i = 0; i < samples; i++) {
     const result = await runRelayerLowerSample({
       ethers,
+      networkHelpers,
       bridge,
       authors,
       relayer,
       token: cfg.usdc,
       lowerAmount,
-      reportedGasCost,
+      reportedGasCost: reportedLowerGasCost,
+      txGasLimit,
       lowerId: nextLowerId++,
       triggerRefund: false,
       recipientKind: 'fresh-recipient'
@@ -618,12 +689,14 @@ async function main() {
     for (let i = 0; i < samples; i++) {
       const result = await runRelayerLowerSample({
         ethers,
+        networkHelpers,
         bridge,
         authors,
         relayer,
         token: cfg.usdc,
         lowerAmount,
-        reportedGasCost,
+        reportedGasCost: reportedLowerGasCost,
+        txGasLimit,
         lowerId: nextLowerId++,
         triggerRefund: false,
         recipient: existingLowerRecipient,
@@ -639,12 +712,14 @@ async function main() {
     console.log('  Clearing relayer balance accumulated during standard-call measurement before recording refund samples...');
     const resetResult = await runRelayerLowerSample({
       ethers,
+      networkHelpers,
       bridge,
       authors,
       relayer,
       token: cfg.usdc,
       lowerAmount,
-      reportedGasCost,
+      reportedGasCost: reportedLowerGasCost,
+      txGasLimit,
       lowerId: nextLowerId++,
       triggerRefund: true,
       recipientKind: 'fresh-recipient'
@@ -656,24 +731,28 @@ async function main() {
     for (let i = 0; i < refundSamples; i++) {
       nextLowerId = await preloadRelayerBalanceWithLowers({
         ethers,
+        networkHelpers,
         bridge,
         authors,
         relayer,
         token: cfg.usdc,
         lowerAmount,
-        reportedGasCost,
+        reportedGasCost: reportedLowerGasCost,
+        txGasLimit,
         startLowerId: nextLowerId,
         calls: Math.max(0, refundAccrualCalls - 1)
       });
 
       const result = await runRelayerLiftSample({
         ethers,
+        networkHelpers,
         usdc,
         holder,
         bridge,
         relayer,
         liftAmount,
-        reportedGasCost,
+        reportedGasCost: reportedLiftGasCost,
+        txGasLimit,
         liftMode,
         triggerRefund: true,
         userKind: 'fresh-holder'
@@ -692,7 +771,7 @@ async function main() {
           relayer,
           token: cfg.usdc,
           lowerAmount,
-          reportedGasCost,
+          reportedGasCost: reportedLowerGasCost,
           startLowerId: nextLowerId,
           calls: Math.max(0, refundAccrualCalls - 1)
         });
@@ -704,7 +783,7 @@ async function main() {
           bridge,
           relayer,
           liftAmount,
-          reportedGasCost,
+          reportedGasCost: reportedLiftGasCost,
           liftMode,
           triggerRefund: true,
           user: existingLiftUser,
@@ -720,24 +799,28 @@ async function main() {
     for (let i = 0; i < refundSamples; i++) {
       nextLowerId = await preloadRelayerBalanceWithLowers({
         ethers,
+        networkHelpers,
         bridge,
         authors,
         relayer,
         token: cfg.usdc,
         lowerAmount,
-        reportedGasCost,
+        reportedGasCost: reportedLowerGasCost,
+        txGasLimit,
         startLowerId: nextLowerId,
         calls: Math.max(0, refundAccrualCalls - 1)
       });
 
       const result = await runRelayerLowerSample({
         ethers,
+        networkHelpers,
         bridge,
         authors,
         relayer,
         token: cfg.usdc,
         lowerAmount,
-        reportedGasCost,
+        reportedGasCost: reportedLowerGasCost,
+        txGasLimit,
         lowerId: nextLowerId++,
         triggerRefund: true,
         recipientKind: 'fresh-recipient'
@@ -756,7 +839,7 @@ async function main() {
           relayer,
           token: cfg.usdc,
           lowerAmount,
-          reportedGasCost,
+          reportedGasCost: reportedLowerGasCost,
           startLowerId: nextLowerId,
           calls: Math.max(0, refundAccrualCalls - 1)
         });
@@ -768,7 +851,7 @@ async function main() {
           relayer,
           token: cfg.usdc,
           lowerAmount,
-          reportedGasCost,
+          reportedGasCost: reportedLowerGasCost,
           lowerId: nextLowerId++,
           triggerRefund: true,
           recipient: existingLowerRecipient,
@@ -819,7 +902,9 @@ async function main() {
     usdc: cfg.usdc,
     samples,
     refundSamples: measureRefunds ? refundSamples : 0,
-    reportedGasCost: String(reportedGasCost),
+    reportedLiftGasCost: String(reportedLiftGasCost),
+    reportedLowerGasCost: String(reportedLowerGasCost),
+    txGasLimit: String(txGasLimit),
     liftAmountUsdc: formatUsdc(liftAmount),
     lowerAmountUsdc: formatUsdc(lowerAmount),
     headroomBps: String(headroomBps),
@@ -920,7 +1005,7 @@ async function main() {
 
   console.log('\nSuggested starting constants:');
   if (measureRefunds && selectedLiftCap && selectedLowerCap) {
-    console.log(`// Based on max(base gas) + max(triggerRefund overhead) / ${selectedRefundFrequency}, with ${Number(headroomBps) / 100}% headroom.`);
+    console.log(`// Based on max(base gas) + max(triggerRefund overhead) / ${selectedRefundFrequency}, with ${formatHeadroom(headroomBps)} headroom.`);
     console.log(`uint256 private constant MAX_RELAYER_LIFT_GAS_COST = ${selectedLiftCap};`);
     console.log(`uint256 private constant MAX_RELAYER_LOWER_GAS_COST = ${selectedLowerCap};`);
   } else {

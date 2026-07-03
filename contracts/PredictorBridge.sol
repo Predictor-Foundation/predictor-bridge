@@ -39,8 +39,8 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
   uint256 private constant ETH_SIG_LENGTH = 65;
   uint256 private constant LOWER_DATA_LENGTH = 20 + 32 + 20 + 4 + 32 + 8;
   uint256 private constant MAX_AUTHORS = 255;
-  uint256 private constant MAX_RELAYER_LIFT_GAS_COST = 180000;
-  uint256 private constant MAX_RELAYER_LOWER_GAS_COST = 200000;
+  uint256 private constant MAX_RELAYER_LIFT_GAS_COST = 170000;
+  uint256 private constant MAX_RELAYER_LOWER_GAS_COST = 190000;
   uint256 private constant MIN_AUTHORS = 4;
   uint256 private constant MINIMUM_LOWER_PROOF_LENGTH = LOWER_DATA_LENGTH + ETH_SIG_LENGTH * 2;
   uint160 private constant MIN_SQRT_RATIO = 4295128739;
