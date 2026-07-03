@@ -106,7 +106,7 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
   error BadConfirmations(); // 0x409c8aac
   error CannotChangeT2Key(bytes32); // 0x140c6815
   error ExceedsLiftGasCostLimit(); // 0xa23e6842
-  error ExceedsLowerGasCostLimit(); //0x466bcd69
+  error ExceedsLowerGasCostLimit(); // 0x466bcd69
   error InvalidCaller(); // 0x48f5c3ed
   error InvalidOracleData(); // 0xf1bccc72
   error InvalidProof(); // 0x09bde339
