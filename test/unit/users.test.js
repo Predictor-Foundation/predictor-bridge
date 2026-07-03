@@ -116,7 +116,6 @@ describe('PredictorBridge user tests', function () {
       it('lifts via predictionMarketLift with USDT', async () => {
         const derivedT2 = await bridge.deriveT2PublicKey(owner.address);
         await usdt.approve(bridge.target, amount);
-
         await expectPredictionMarketLifted(bridge.predictionMarketLift(usdt.target, amount), usdt, derivedT2);
       });
 

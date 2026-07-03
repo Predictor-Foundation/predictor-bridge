@@ -406,7 +406,7 @@ describe('PredictorBridge relayer tests', function () {
       await bridge.registerRelayer(rejectingRelayer.target);
 
       const liftAmount = 50n * ONE_USD;
-      const gasCost = 175_000n;
+      const gasCost = MAX_RELAYER_LIFT_GAS_COST;
 
       await usdc.transfer(user.address, liftAmount * 5n);
 
