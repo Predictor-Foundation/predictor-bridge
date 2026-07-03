@@ -50,236 +50,324 @@ describe('PredictorBridge user tests', function () {
   describe('lift variants', function () {
     const amount = 100n;
 
-    it('lifts via approve + lift', async () => {
-      await token.approve(bridge.target, amount);
-      await expect(bridge.lift(token.target, t2PubKey, amount))
-        .to.emit(bridge, 'LogLifted')
-        .withArgs(token.target, t2PubKey, amount);
+    async function expectLifted(tx, liftedToken, recipientT2 = t2PubKey, liftedAmount = amount) {
+      await expect(tx).to.emit(bridge, 'LogLifted').withArgs(liftedToken.target, recipientT2, liftedAmount);
+    }
+
+    async function expectPredictionMarketLifted(tx, liftedToken, recipientT2, liftedAmount = amount) {
+      await expect(tx).to.emit(bridge, 'LogLiftedToPredictionMarket').withArgs(liftedToken.target, recipientT2, liftedAmount);
+    }
+
+    async function expectBlockedFrom(address, action) {
+      await sanctions.setSanctioned(address, true);
+      await impersonateAccount(address);
+      const sanctioned = await ethers.getSigner(address);
+
+      await expect(action(sanctioned)).to.be.revertedWithCustomError(bridge, 'AddressBlocked');
+
+      await stopImpersonatingAccount(address);
+    }
+
+    describe('successful lifts', function () {
+      it('lifts via approve + lift', async () => {
+        await token.approve(bridge.target, amount);
+        await expectLifted(bridge.lift(token.target, t2PubKey, amount), token);
+      });
+
+      it('lifts PRD via approve + liftPRD', async () => {
+        await prd.approve(bridge.target, amount);
+        await expectLifted(bridge.liftPRD(t2PubKey, amount), prd);
+      });
+
+      it('lifts via permitLift', async () => {
+        const permit = await getPermit(token, owner, bridge, amount);
+        await expectLifted(bridge.permitLift(token.target, t2PubKey, amount, permit.deadline, permit.v, permit.r, permit.s), token);
+      });
+
+      it('lifts via permitLift when permit was already consumed and allowance exists', async () => {
+        const permit = await getPermit(token, owner, bridge, amount);
+
+        await token.permit(owner.address, bridge.target, amount, permit.deadline, permit.v, permit.r, permit.s);
+
+        expect(await token.allowance(owner.address, bridge.target)).to.equal(amount);
+
+        await expectLifted(bridge.permitLift(token.target, t2PubKey, amount, permit.deadline, permit.v, permit.r, permit.s), token);
+      });
+
+      it('lifts PRD via permitLiftPRD', async () => {
+        const permit = await getPermit(prd, owner, bridge, amount);
+        await expectLifted(bridge.permitLiftPRD(t2PubKey, amount, permit.deadline, permit.v, permit.r, permit.s), prd);
+      });
+
+      it('lifts PRD via permitLiftPRD when permit was already consumed and allowance exists', async () => {
+        const permit = await getPermit(prd, owner, bridge, amount);
+
+        await prd.permit(owner.address, bridge.target, amount, permit.deadline, permit.v, permit.r, permit.s);
+
+        expect(await prd.allowance(owner.address, bridge.target)).to.equal(amount);
+
+        await expectLifted(bridge.permitLiftPRD(t2PubKey, amount, permit.deadline, permit.v, permit.r, permit.s), prd);
+      });
+
+      it('lifts via predictionMarketLift with USDC', async () => {
+        const derivedT2 = await bridge.deriveT2PublicKey(owner.address);
+
+        await usdc.approve(bridge.target, amount);
+
+        await expectPredictionMarketLifted(bridge.predictionMarketLift(usdc.target, amount), usdc, derivedT2);
+      });
+
+      it('lifts via predictionMarketLift with USDT', async () => {
+        const derivedT2 = await bridge.deriveT2PublicKey(owner.address);
+
+        await usdt.approve(bridge.target, amount);
+
+        await expectPredictionMarketLifted(bridge.predictionMarketLift(usdt.target, amount), usdt, derivedT2);
+      });
+
+      it('lifts via predictionMarketRecipientLift with USDC', async () => {
+        const recipientT2 = randomBytes32();
+
+        await usdc.approve(bridge.target, amount);
+
+        await expectPredictionMarketLifted(bridge.predictionMarketRecipientLift(usdc.target, recipientT2, amount), usdc, recipientT2);
+      });
+
+      it('lifts via predictionMarketRecipientLift with USDT', async () => {
+        const recipientT2 = randomBytes32();
+
+        await usdt.approve(bridge.target, amount);
+
+        await expectPredictionMarketLifted(bridge.predictionMarketRecipientLift(usdt.target, recipientT2, amount), usdt, recipientT2);
+      });
+
+      it('lifts via predictionMarketPermitLift', async () => {
+        const permit = await getPermit(usdc, owner, bridge, amount);
+        const derivedT2 = await bridge.deriveT2PublicKey(owner.address);
+
+        await expectPredictionMarketLifted(bridge.predictionMarketPermitLift(amount, permit.deadline, permit.v, permit.r, permit.s), usdc, derivedT2);
+      });
+
+      it('lifts via predictionMarketPermitLift when permit was already consumed and allowance exists', async () => {
+        const permit = await getPermit(usdc, owner, bridge, amount);
+        const derivedT2 = await bridge.deriveT2PublicKey(owner.address);
+
+        await usdc.permit(owner.address, bridge.target, amount, permit.deadline, permit.v, permit.r, permit.s);
+
+        expect(await usdc.allowance(owner.address, bridge.target)).to.equal(amount);
+
+        await expectPredictionMarketLifted(bridge.predictionMarketPermitLift(amount, permit.deadline, permit.v, permit.r, permit.s), usdc, derivedT2);
+      });
     });
 
-    it('lifts PRD via approve + liftPRD', async () => {
-      await prd.approve(bridge.target, amount);
-      await expect(bridge.liftPRD(t2PubKey, amount)).to.emit(bridge, 'LogLifted').withArgs(prd.target, t2PubKey, amount);
+    describe('zero amount reverts', function () {
+      it('rejects zero amount for lift', async () => {
+        await token.approve(bridge.target, 0);
+        await expect(bridge.lift(token.target, t2PubKey, 0)).to.be.revertedWithCustomError(bridge, 'AmountIsZero');
+      });
+
+      it('rejects zero amount for liftPRD', async () => {
+        await prd.approve(bridge.target, 0);
+        await expect(bridge.liftPRD(t2PubKey, 0)).to.be.revertedWithCustomError(bridge, 'AmountIsZero');
+      });
+
+      it('rejects zero amount for permitLift', async () => {
+        const permit = await getPermit(token, owner, bridge, 0);
+        await expect(bridge.permitLift(token.target, t2PubKey, 0, permit.deadline, permit.v, permit.r, permit.s)).to.be.revertedWithCustomError(bridge, 'AmountIsZero');
+      });
+
+      it('rejects zero amount for permitLiftPRD', async () => {
+        const permit = await getPermit(prd, owner, bridge, 0);
+        await expect(bridge.permitLiftPRD(t2PubKey, 0, permit.deadline, permit.v, permit.r, permit.s)).to.be.revertedWithCustomError(bridge, 'AmountIsZero');
+      });
+
+      it('rejects zero amount for predictionMarketLift', async () => {
+        await usdc.approve(bridge.target, 0);
+        await expect(bridge.predictionMarketLift(usdc.target, 0)).to.be.revertedWithCustomError(bridge, 'AmountIsZero');
+      });
+
+      it('rejects zero amount for predictionMarketRecipientLift', async () => {
+        await usdt.approve(bridge.target, 0);
+        await expect(bridge.predictionMarketRecipientLift(usdt.target, randomBytes32(), 0)).to.be.revertedWithCustomError(bridge, 'AmountIsZero');
+      });
+
+      it('rejects zero amount for predictionMarketPermitLift', async () => {
+        const permit = await getPermit(usdc, owner, bridge, 0);
+        await expect(bridge.predictionMarketPermitLift(0, permit.deadline, permit.v, permit.r, permit.s)).to.be.revertedWithCustomError(bridge, 'AmountIsZero');
+      });
     });
 
-    it('lifts via permitLift', async () => {
-      const permit = await getPermit(token, owner, bridge, amount);
-      await expect(bridge.permitLift(token.target, t2PubKey, amount, permit.deadline, permit.v, permit.r, permit.s))
-        .to.emit(bridge, 'LogLifted')
-        .withArgs(token.target, t2PubKey, amount);
+    describe('invalid t2 key reverts', function () {
+      it('rejects zero t2 key for lift', async () => {
+        await token.approve(bridge.target, amount);
+        await expect(bridge.lift(token.target, ethers.ZeroHash, amount)).to.be.revertedWithCustomError(bridge, 'InvalidT2Key');
+      });
+
+      it('rejects zero t2 key for liftPRD', async () => {
+        await prd.approve(bridge.target, amount);
+        await expect(bridge.liftPRD(ethers.ZeroHash, amount)).to.be.revertedWithCustomError(bridge, 'InvalidT2Key');
+      });
+
+      it('rejects zero t2 key for permitLift', async () => {
+        const permit = await getPermit(token, owner, bridge, amount);
+        await expect(bridge.permitLift(token.target, ethers.ZeroHash, amount, permit.deadline, permit.v, permit.r, permit.s)).to.be.revertedWithCustomError(
+          bridge,
+          'InvalidT2Key'
+        );
+      });
+
+      it('rejects zero t2 key for permitLiftPRD', async () => {
+        const permit = await getPermit(prd, owner, bridge, amount);
+        await expect(bridge.permitLiftPRD(ethers.ZeroHash, amount, permit.deadline, permit.v, permit.r, permit.s)).to.be.revertedWithCustomError(bridge, 'InvalidT2Key');
+      });
+
+      it('rejects zero t2 key for predictionMarketRecipientLift', async () => {
+        await usdt.approve(bridge.target, amount);
+        await expect(bridge.predictionMarketRecipientLift(usdt.target, ethers.ZeroHash, amount)).to.be.revertedWithCustomError(bridge, 'InvalidT2Key');
+      });
     });
 
-    it('lifts via permitLift when permit was already consumed and allowance exists', async () => {
-      const permit = await getPermit(token, owner, bridge, amount);
+    describe('paused reverts', function () {
+      beforeEach(async () => {
+        await bridge.pause();
+      });
 
-      await token.permit(owner.address, bridge.target, amount, permit.deadline, permit.v, permit.r, permit.s);
+      it('rejects lift when paused', async () => {
+        await token.approve(bridge.target, amount);
+        await expect(bridge.lift(token.target, t2PubKey, amount)).to.be.revertedWithCustomError(bridge, 'EnforcedPause');
+      });
 
-      expect(await token.allowance(owner.address, bridge.target)).to.equal(amount);
+      it('rejects liftPRD when paused', async () => {
+        await prd.approve(bridge.target, amount);
+        await expect(bridge.liftPRD(t2PubKey, amount)).to.be.revertedWithCustomError(bridge, 'EnforcedPause');
+      });
 
-      await expect(bridge.permitLift(token.target, t2PubKey, amount, permit.deadline, permit.v, permit.r, permit.s))
-        .to.emit(bridge, 'LogLifted')
-        .withArgs(token.target, t2PubKey, amount);
+      it('rejects permitLift when paused', async () => {
+        const permit = await getPermit(token, owner, bridge, amount);
+        await expect(bridge.permitLift(token.target, t2PubKey, amount, permit.deadline, permit.v, permit.r, permit.s)).to.be.revertedWithCustomError(bridge, 'EnforcedPause');
+      });
+
+      it('rejects permitLiftPRD when paused', async () => {
+        const permit = await getPermit(prd, owner, bridge, amount);
+        await expect(bridge.permitLiftPRD(t2PubKey, amount, permit.deadline, permit.v, permit.r, permit.s)).to.be.revertedWithCustomError(bridge, 'EnforcedPause');
+      });
+
+      it('rejects predictionMarketLift when paused', async () => {
+        await usdc.approve(bridge.target, amount);
+        await expect(bridge.predictionMarketLift(usdc.target, amount)).to.be.revertedWithCustomError(bridge, 'EnforcedPause');
+      });
+
+      it('rejects predictionMarketRecipientLift when paused', async () => {
+        await usdt.approve(bridge.target, amount);
+        await expect(bridge.predictionMarketRecipientLift(usdt.target, randomBytes32(), amount)).to.be.revertedWithCustomError(bridge, 'EnforcedPause');
+      });
+
+      it('rejects predictionMarketPermitLift when paused', async () => {
+        const permit = await getPermit(usdc, owner, bridge, amount);
+        await expect(bridge.predictionMarketPermitLift(amount, permit.deadline, permit.v, permit.r, permit.s)).to.be.revertedWithCustomError(bridge, 'EnforcedPause');
+      });
     });
 
-    it('lifts via predictionMarketLift with USDC', async () => {
-      await usdc.approve(bridge.target, amount);
-      await expect(bridge.predictionMarketLift(usdc.target, amount))
-        .to.emit(bridge, 'LogLiftedToPredictionMarket')
-        .withArgs(usdc.target, await bridge.deriveT2PublicKey(owner.address), amount);
+    describe('invalid token and transfer behaviour', function () {
+      it('rejects invalid token for predictionMarketLift', async () => {
+        await token.approve(bridge.target, amount);
+        await expect(bridge.predictionMarketLift(token.target, amount)).to.be.revertedWithCustomError(bridge, 'InvalidToken');
+      });
+
+      it('rejects invalid token for predictionMarketRecipientLift', async () => {
+        await token.approve(bridge.target, amount);
+        await expect(bridge.predictionMarketRecipientLift(token.target, randomBytes32(), amount)).to.be.revertedWithCustomError(bridge, 'InvalidToken');
+      });
+
+      it('liftPRD uses the hardcoded PRD token, not an arbitrary approved token', async () => {
+        await token.approve(bridge.target, amount);
+        await expect(bridge.liftPRD(t2PubKey, amount)).to.revert();
+      });
+
+      it('rejects lift when token burns the full amount on transfer', async () => {
+        const BurnOnTransfer = await ethers.getContractFactory('MockBurnOnTransferERC20Permit');
+        const burnToken = await BurnOnTransfer.deploy('Burn', 'BURN', 18, owner.address, 1_000_000n, 10_000); // 100% burn
+
+        await burnToken.approve(bridge.target, amount);
+
+        await expect(bridge.lift(burnToken.target, t2PubKey, amount)).to.be.revertedWithCustomError(bridge, 'LiftFailed');
+      });
+
+      it('rejects exceeding token limit', async () => {
+        const Huge = await ethers.getContractFactory('MockERC20Permit');
+        const huge = await Huge.deploy('Huge', 'HUGE', 18, owner.address, 2n ** 140n);
+        const max = 2n ** 128n - 1n;
+
+        await huge.approve(bridge.target, max);
+        await bridge.lift(huge.target, t2PubKey, max);
+
+        await huge.approve(bridge.target, 1n);
+        await expect(bridge.lift(huge.target, t2PubKey, 1n)).to.be.revertedWithCustomError(bridge, 'LiftLimitHit');
+      });
     });
 
-    it('lifts via predictionMarketLift with USDT', async () => {
-      await usdt.approve(bridge.target, amount);
-      await expect(bridge.predictionMarketLift(usdt.target, amount))
-        .to.emit(bridge, 'LogLiftedToPredictionMarket')
-        .withArgs(usdt.target, await bridge.deriveT2PublicKey(owner.address), amount);
+    describe('permit failure reverts', function () {
+      it('rejects permitLift when permit fails and allowance is too low', async () => {
+        const permit = await getPermit(token, owner, bridge, amount);
+
+        await expect(bridge.permitLift(token.target, t2PubKey, amount, permit.deadline, 27, randomBytes32(), randomBytes32())).to.be.revertedWithCustomError(
+          bridge,
+          'PermitAllowanceTooLow'
+        );
+      });
+
+      it('rejects permitLiftPRD when permit fails and allowance is too low', async () => {
+        const permit = await getPermit(prd, owner, bridge, amount);
+
+        await expect(bridge.permitLiftPRD(t2PubKey, amount, permit.deadline, 27, randomBytes32(), randomBytes32())).to.be.revertedWithCustomError(
+          bridge,
+          'PermitAllowanceTooLow'
+        );
+      });
+
+      it('rejects predictionMarketPermitLift when permit fails and allowance is too low', async () => {
+        const permit = await getPermit(usdc, owner, bridge, amount);
+
+        await expect(bridge.predictionMarketPermitLift(amount, permit.deadline, 27, randomBytes32(), randomBytes32())).to.be.revertedWithCustomError(
+          bridge,
+          'PermitAllowanceTooLow'
+        );
+      });
     });
 
-    it('lifts via predictionMarketRecipientLift with USDC', async () => {
-      const recipientT2 = randomBytes32();
-      await usdc.approve(bridge.target, amount);
-      await expect(bridge.predictionMarketRecipientLift(usdc.target, recipientT2, amount))
-        .to.emit(bridge, 'LogLiftedToPredictionMarket')
-        .withArgs(usdc.target, recipientT2, amount);
-    });
+    describe('sanctions reverts', function () {
+      it('rejects sanctioned sender for lift', async () => {
+        await expectBlockedFrom(SANCTIONED_ADDRESS, sanctioned => bridge.connect(sanctioned).lift(token.target, t2PubKey, amount));
+      });
 
-    it('lifts via predictionMarketRecipientLift with USDT', async () => {
-      const recipientT2 = randomBytes32();
-      await usdt.approve(bridge.target, amount);
-      await expect(bridge.predictionMarketRecipientLift(usdt.target, recipientT2, amount))
-        .to.emit(bridge, 'LogLiftedToPredictionMarket')
-        .withArgs(usdt.target, recipientT2, amount);
-    });
+      it('rejects sanctioned sender for liftPRD', async () => {
+        await expectBlockedFrom(SANCTIONED_ADDRESS, sanctioned => bridge.connect(sanctioned).liftPRD(t2PubKey, amount));
+      });
 
-    it('lifts via predictionMarketPermitLift', async () => {
-      const permit = await getPermit(usdc, owner, bridge, amount);
-      await expect(bridge.predictionMarketPermitLift(amount, permit.deadline, permit.v, permit.r, permit.s))
-        .to.emit(bridge, 'LogLiftedToPredictionMarket')
-        .withArgs(usdc.target, await bridge.deriveT2PublicKey(owner.address), amount);
-    });
+      it('rejects sanctioned sender for permitLift', async () => {
+        const permit = await getPermit(token, owner, bridge, amount);
+        await expectBlockedFrom(SANCTIONED_ADDRESS, sanctioned =>
+          bridge.connect(sanctioned).permitLift(token.target, t2PubKey, amount, permit.deadline, permit.v, permit.r, permit.s)
+        );
+      });
 
-    it('lifts via predictionMarketPermitLift when permit was already consumed and allowance exists', async () => {
-      const permit = await getPermit(usdc, owner, bridge, amount);
+      it('rejects sanctioned sender for permitLiftPRD', async () => {
+        const permit = await getPermit(prd, owner, bridge, amount);
+        await expectBlockedFrom(SANCTIONED_ADDRESS, sanctioned => bridge.connect(sanctioned).permitLiftPRD(t2PubKey, amount, permit.deadline, permit.v, permit.r, permit.s));
+      });
 
-      await usdc.permit(owner.address, bridge.target, amount, permit.deadline, permit.v, permit.r, permit.s);
+      it('rejects sanctioned sender for predictionMarketLift', async () => {
+        await expectBlockedFrom(SANCTIONED_ADDRESS, sanctioned => bridge.connect(sanctioned).predictionMarketLift(usdc.target, amount));
+      });
 
-      expect(await usdc.allowance(owner.address, bridge.target)).to.equal(amount);
+      it('rejects sanctioned sender for predictionMarketRecipientLift', async () => {
+        await expectBlockedFrom(SANCTIONED_ADDRESS, sanctioned => bridge.connect(sanctioned).predictionMarketRecipientLift(usdc.target, randomBytes32(), amount));
+      });
 
-      await expect(bridge.predictionMarketPermitLift(amount, permit.deadline, permit.v, permit.r, permit.s))
-        .to.emit(bridge, 'LogLiftedToPredictionMarket')
-        .withArgs(usdc.target, await bridge.deriveT2PublicKey(owner.address), amount);
-    });
-
-    it('rejects zero amount for liftPRD', async () => {
-      await prd.approve(bridge.target, 0);
-      await expect(bridge.liftPRD(t2PubKey, 0)).to.be.revertedWithCustomError(bridge, 'AmountIsZero');
-    });
-
-    it('rejects zero t2 key for liftPRD', async () => {
-      await prd.approve(bridge.target, amount);
-      await expect(bridge.liftPRD(ethers.ZeroHash, amount)).to.be.revertedWithCustomError(bridge, 'InvalidT2Key');
-    });
-
-    it('rejects liftPRD when paused', async () => {
-      await bridge.pause();
-      await prd.approve(bridge.target, amount);
-
-      await expect(bridge.liftPRD(t2PubKey, amount)).to.be.revertedWithCustomError(bridge, 'EnforcedPause');
-    });
-
-    it('rejects sanctioned sender for liftPRD', async () => {
-      await sanctions.setSanctioned(SANCTIONED_ADDRESS, true);
-      await impersonateAccount(SANCTIONED_ADDRESS);
-      const sanctioned = await ethers.getSigner(SANCTIONED_ADDRESS);
-
-      await expect(bridge.connect(sanctioned).liftPRD(t2PubKey, amount)).to.be.revertedWithCustomError(bridge, 'AddressBlocked');
-
-      await stopImpersonatingAccount(SANCTIONED_ADDRESS);
-    });
-
-    it('liftPRD uses the hardcoded PRD token, not an arbitrary approved token', async () => {
-      await token.approve(bridge.target, amount);
-      await expect(bridge.liftPRD(t2PubKey, amount)).to.revert();
-    });
-
-    it('rejects invalid token for predictionMarketLift', async () => {
-      await token.approve(bridge.target, amount);
-      await expect(bridge.predictionMarketLift(token.target, amount)).to.be.revertedWithCustomError(bridge, 'InvalidToken');
-    });
-
-    it('rejects invalid token for predictionMarketRecipientLift', async () => {
-      await token.approve(bridge.target, amount);
-      await expect(bridge.predictionMarketRecipientLift(token.target, randomBytes32(), amount)).to.be.revertedWithCustomError(bridge, 'InvalidToken');
-    });
-
-    it('rejects zero amount', async () => {
-      await token.approve(bridge.target, 0);
-      await expect(bridge.lift(token.target, t2PubKey, 0)).to.be.revertedWithCustomError(bridge, 'AmountIsZero');
-    });
-
-    it('rejects lift when token burns the full amount on transfer', async () => {
-      const BurnOnTransfer = await ethers.getContractFactory('MockBurnOnTransferERC20Permit');
-      const burnToken = await BurnOnTransfer.deploy('Burn', 'BURN', 18, owner.address, 1_000_000n, 10_000); // 100% burn
-      const amount = 100n;
-      await burnToken.approve(bridge.target, amount);
-      await expect(bridge.lift(burnToken.target, t2PubKey, amount)).to.be.revertedWithCustomError(bridge, 'LiftFailed');
-    });
-
-    it('rejects zero t2 key for lift', async () => {
-      await token.approve(bridge.target, amount);
-      await expect(bridge.lift(token.target, ethers.ZeroHash, amount)).to.be.revertedWithCustomError(bridge, 'InvalidT2Key');
-    });
-
-    it('rejects zero t2 key for permitLift', async () => {
-      const permit = await getPermit(token, owner, bridge, amount);
-      await expect(bridge.permitLift(token.target, ethers.ZeroHash, amount, permit.deadline, permit.v, permit.r, permit.s)).to.be.revertedWithCustomError(
-        bridge,
-        'InvalidT2Key'
-      );
-    });
-
-    it('rejects zero t2 key for predictionMarketRecipientLift', async () => {
-      await usdt.approve(bridge.target, amount);
-      await expect(bridge.predictionMarketRecipientLift(usdt.target, ethers.ZeroHash, amount)).to.be.revertedWithCustomError(bridge, 'InvalidT2Key');
-    });
-
-    it('rejects lift when paused', async () => {
-      await bridge.pause();
-      await token.approve(bridge.target, amount);
-      await expect(bridge.lift(token.target, t2PubKey, amount)).to.be.revertedWithCustomError(bridge, 'EnforcedPause');
-    });
-
-    it('rejects permitLift when paused', async () => {
-      await bridge.pause();
-      const permit = await getPermit(token, owner, bridge, amount);
-      await expect(bridge.permitLift(token.target, t2PubKey, amount, permit.deadline, permit.v, permit.r, permit.s)).to.be.revertedWithCustomError(bridge, 'EnforcedPause');
-    });
-
-    it('rejects permitLift when permit fails and allowance is too low', async () => {
-      const permit = await getPermit(token, owner, bridge, amount);
-
-      await expect(bridge.permitLift(token.target, t2PubKey, amount, permit.deadline, 27, randomBytes32(), randomBytes32())).to.be.revertedWithCustomError(
-        bridge,
-        'PermitAllowanceTooLow'
-      );
-    });
-
-    it('rejects predictionMarketLift when paused', async () => {
-      await bridge.pause();
-      await token.approve(bridge.target, amount);
-      await expect(bridge.predictionMarketLift(token.target, amount)).to.be.revertedWithCustomError(bridge, 'EnforcedPause');
-    });
-
-    it('rejects predictionMarketRecipientLift when paused', async () => {
-      await bridge.pause();
-      await token.approve(bridge.target, amount);
-      await expect(bridge.predictionMarketRecipientLift(token.target, randomBytes32(), amount)).to.be.revertedWithCustomError(bridge, 'EnforcedPause');
-    });
-
-    it('rejects predictionMarketPermitLift when paused', async () => {
-      await bridge.pause();
-      const permit = await getPermit(usdc, owner, bridge, amount);
-      await expect(bridge.predictionMarketPermitLift(amount, permit.deadline, permit.v, permit.r, permit.s)).to.be.revertedWithCustomError(bridge, 'EnforcedPause');
-    });
-
-    it('rejects sanctioned sender for lift', async () => {
-      await sanctions.setSanctioned(SANCTIONED_ADDRESS, true);
-      await impersonateAccount(SANCTIONED_ADDRESS);
-      const sanctioned = await ethers.getSigner(SANCTIONED_ADDRESS);
-
-      await expect(bridge.connect(sanctioned).lift(token.target, t2PubKey, amount)).to.be.revertedWithCustomError(bridge, 'AddressBlocked');
-
-      await stopImpersonatingAccount(SANCTIONED_ADDRESS);
-    });
-
-    it('rejects sanctioned sender for predictionMarketLift', async () => {
-      await sanctions.setSanctioned(SANCTIONED_ADDRESS, true);
-      await impersonateAccount(SANCTIONED_ADDRESS);
-      const sanctioned = await ethers.getSigner(SANCTIONED_ADDRESS);
-
-      await expect(bridge.connect(sanctioned).predictionMarketLift(token.target, amount)).to.be.revertedWithCustomError(bridge, 'AddressBlocked');
-
-      await stopImpersonatingAccount(SANCTIONED_ADDRESS);
-    });
-
-    it('rejects sanctioned sender for predictionMarketRecipientLift', async () => {
-      await sanctions.setSanctioned(SANCTIONED_ADDRESS, true);
-      await impersonateAccount(SANCTIONED_ADDRESS);
-      const sanctioned = await ethers.getSigner(SANCTIONED_ADDRESS);
-
-      await expect(bridge.connect(sanctioned).predictionMarketRecipientLift(token.target, randomBytes32(), amount)).to.be.revertedWithCustomError(bridge, 'AddressBlocked');
-
-      await stopImpersonatingAccount(SANCTIONED_ADDRESS);
-    });
-
-    it('rejects exceeding token limit', async () => {
-      const Huge = await ethers.getContractFactory('MockERC20Permit');
-      const huge = await Huge.deploy('Huge', 'HUGE', 18, owner.address, 2n ** 140n);
-      const max = 2n ** 128n - 1n;
-      await huge.approve(bridge.target, max);
-      await bridge.lift(huge.target, t2PubKey, max);
-      await huge.approve(bridge.target, 1n);
-      await expect(bridge.lift(huge.target, t2PubKey, 1n)).to.be.revertedWithCustomError(bridge, 'LiftLimitHit');
+      it('rejects sanctioned sender for predictionMarketPermitLift', async () => {
+        const permit = await getPermit(usdc, owner, bridge, amount);
+        await expectBlockedFrom(SANCTIONED_ADDRESS, sanctioned => bridge.connect(sanctioned).predictionMarketPermitLift(amount, permit.deadline, permit.v, permit.r, permit.s));
+      });
     });
   });
 

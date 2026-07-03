@@ -90,6 +90,7 @@ The bridge operates in two directions:
 | `lift`                          | 2                | User    | Any ERC20          | Explicit `bytes32`          | Base account      |
 | `liftPRD`                       | 2                | User    | PRD                | Explicit `bytes32`          | Base account      |
 | `permitLift`                    | 1                | User    | Any EIP-2612 ERC20 | Explicit `bytes32`          | Base account      |
+| `permitLiftPRD`                 | 1                | User    | PRD                | Explicit `bytes32`          | Base account      |
 | `predictionMarketLift`          | 2                | User    | USDC / USDT        | Derived from caller address | Prediction market |
 | `predictionMarketPermitLift`    | 1                | User    | USDC               | Derived from caller address | Prediction market |
 | `predictionMarketRecipientLift` | 2                | User    | USDC / USDT        | Explicit `bytes32`          | Prediction market |
