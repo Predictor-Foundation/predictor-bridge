@@ -1,21 +1,18 @@
 import hre, { network } from 'hardhat';
-import { checkEnvMatchesNetwork, deployVerifiedProxy, getBridgeArgs, getEnv, getInitArgs, printBalances, validateBridgeConfig, validateInitConfig } from './helper.js';
+import { checkEnvMatchesNetwork, getBridgeArgs, getEnv, printBalances, validateBridgeConfig, verifyContract } from './helper.js';
 
 async function main() {
   const env = getEnv();
   const { ethers, networkName } = await network.create();
 
   if (env !== 'mainnet') {
-    throw new Error('deploy-bridge.js is mainnet-only. Use deploy-test-bridge.js for dev/testnet.');
+    throw new Error('deploy-bridge-implementation.js is mainnet-only. Use deploy-test-bridge-implementation.js for dev/testnet.');
   }
 
   checkEnvMatchesNetwork(env, networkName);
   validateBridgeConfig(env);
-  validateInitConfig(env);
 
   const bridgeArgs = getBridgeArgs(env);
-  const initArgs = getInitArgs(env);
-
   const [deployer] = await ethers.getSigners();
   const beforeBalance = await ethers.provider.getBalance(deployer.address);
 
@@ -23,14 +20,19 @@ async function main() {
   console.log(`Env: ${env}`);
   console.log(`Network: ${networkName}`);
   console.log('Contract: PredictorBridge');
+  console.log('Deploying: implementation');
 
-  const bridge = await deployVerifiedProxy(hre, ethers, networkName, 'PredictorBridge', bridgeArgs, initArgs, 'PredictorBridge');
+  const Bridge = await ethers.getContractFactory('PredictorBridge');
+  const implementation = await Bridge.deploy(...bridgeArgs);
+  await implementation.waitForDeployment();
+  const implementationAddress = await implementation.getAddress();
+
+  await verifyContract(hre, implementationAddress, bridgeArgs, 'PredictorBridge implementation');
 
   const afterBalance = await ethers.provider.getBalance(deployer.address);
   printBalances(ethers, beforeBalance, afterBalance);
 
-  console.log(`\nPredictorBridge: ${bridge.proxyAddress}`);
-  console.log(`Implementation: ${bridge.implementationAddress}`);
+  console.log(`\nNew PredictorBridge Implementation: ${implementationAddress}`);
   console.log('\nDone.');
 }
 

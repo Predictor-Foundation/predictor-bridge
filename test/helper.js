@@ -291,14 +291,16 @@ async function deployFixture({ numAuthors = 6, contractName = 'PredictorBridge' 
   const Feed = await ethers.getContractFactory('MockChainlinkV3Aggregator');
   const Pool = await ethers.getContractFactory('MockUniswapV3Pool');
   const Sanctions = await ethers.getContractFactory('MockChainalysis');
-  const Token = await ethers.getContractFactory('MockERC20Permit');
+  const Token = await ethers.getContractFactory('TestERC20');
+  const PermitToken = await ethers.getContractFactory('TestERC20Permit');
   const WETH = await ethers.getContractFactory('MockWETH9');
 
   const feed = await Feed.deploy();
   const sanctions = await Sanctions.deploy();
-  const prd = await Token.deploy('Predictor', 'PRD', 10, owner.address, 1_000_000_000_000_000_000_000n);
+  const prd = await PermitToken.deploy('Predictor', 'PRD', 10, owner.address, 1_000_000_000_000_000_000_000n);
   const token = await Token.deploy('Token', 'TOK', 18, owner.address, 1_000_000_000_000_000_000_000_000_000n);
-  const usdc = await Token.deploy('USD Coin', 'USDC', 6, owner.address, 10_000_000_000_000n);
+  const permitToken = await PermitToken.deploy('Permit', 'PTOK', 18, owner.address, 1_000_000_000_000_000_000_000_000_000n);
+  const usdc = await PermitToken.deploy('USD Coin', 'USDC', 6, owner.address, 10_000_000_000_000n);
   const usdt = await Token.deploy('Tether', 'USDT', 6, owner.address, 10_000_000_000_000n);
   const weth = await WETH.deploy();
   const pool = await Pool.deploy(usdc.target, weth.target);
@@ -313,13 +315,19 @@ async function deployFixture({ numAuthors = 6, contractName = 'PredictorBridge' 
 
   const selectedAuthors = authors.slice(0, numAuthors);
 
-  const initData = implementation.interface.encodeFunctionData('initialize', [
+  const initArgs = [
     selectedAuthors.map(a => a.t1Address),
     selectedAuthors.map(a => a.t1PubKeyLHS),
     selectedAuthors.map(a => a.t1PubKeyRHS),
     selectedAuthors.map(a => a.t2PubKey),
     owner.address
-  ]);
+  ];
+
+  const initFunction = contractName === 'TestPredictorBridge' ? 'initialize(address[],bytes32[],bytes32[],bytes32[],address,address[])' : 'initialize';
+
+  const finalInitArgs = contractName === 'TestPredictorBridge' ? [...initArgs, []] : initArgs;
+
+  const initData = implementation.interface.encodeFunctionData(initFunction, finalInitArgs);
 
   const proxy = await ERC1967Proxy.deploy(implementation.target, initData);
   await proxy.waitForDeployment();
@@ -334,6 +342,7 @@ async function deployFixture({ numAuthors = 6, contractName = 'PredictorBridge' 
     owner,
     pool,
     sanctions,
+    permitToken,
     prd,
     token,
     usdc,
