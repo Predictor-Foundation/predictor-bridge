@@ -17,7 +17,8 @@
     "deploy:test-bridge:dev": "cross-env BRIDGE_ENV=dev npx hardhat run deploy/deploy-test-bridge.js --network sepolia",
     "deploy:test-bridge:testnet": "cross-env BRIDGE_ENV=testnet npx hardhat run deploy/deploy-test-bridge.js --network sepolia",
     "deploy:test-bridge-implementation:dev": "cross-env BRIDGE_ENV=dev npx hardhat run deploy/deploy-test-bridge-implementation.js --network sepolia",
-    "deploy:test-bridge-implementation:testnet": "cross-env BRIDGE_ENV=testnet npx hardhat run deploy/deploy-test-bridge-implementation.js --network sepolia"
+    "deploy:test-bridge-implementation:testnet": "cross-env BRIDGE_ENV=testnet npx hardhat run deploy/deploy-test-bridge-implementation.js --network sepolia",
+    "measure:relayer-gas": "npx hardhat run scripts/measure-relayer-gas.js --network mainnetFork"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-ledger": "^3.0.10",
