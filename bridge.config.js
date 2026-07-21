@@ -1,6 +1,6 @@
 const bridgeConfig = {
   mainnet: {
-    owner: '',
+    owner: '0xe7bB721a15A75dBF144445C96651c95FcEE3Dc2B',
     feed: '0x986b5E1e1755e3C2440e960477f25201B0a8bbD4',
     pool: '0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640',
     sanctions: '0x40C57923924B5c5c5455c48D93317139ADDaC8fb',
@@ -8,7 +8,33 @@ const bridgeConfig = {
     usdc: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
     usdt: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
     weth: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
-    authors: []
+    authors: [
+      {
+        ethAddress: '0x041442A53751317182694cCF4DC9997D61E0f173',
+        ethUncompressedPublicKey: '0x04be2ddaed0fbbf5c60577f7f65c50bdfd6f1ffc16c469278d40f0949d4aa9ef87c6053e8c4b047df549b8454f843451363218dbca9ed189a62cd66300b4654ffa',
+        t2PublicKey: '0x546b4559d91c7c28f96c186f836c0e40a762604817b15a376cfd20b9e9d18436'
+      },
+      {
+        ethAddress: '0x8c350e49f2fbFe6Ac8058f85E0057eFf090D1559',
+        ethUncompressedPublicKey: '0x04e0fa13fb03c30accc1944a86434f84fe183ed7355fc2240ff7d333b1e83ef711cdbcfcffd5b6185848887601167c0176fc335088e704261a9a1cc6e7978ccaac',
+        t2PublicKey: '0x4acdb77de3e60c034ff3015809934596ac52ec56fb634a4f1c6bec9db9e9940d'
+      },
+      {
+        ethAddress: '0x12fD6309bB10da94AE599D4b2640fDD4b9f04e9f',
+        ethUncompressedPublicKey: '0x04a679e59b9b472e547c3eef5a9f4ad646cda937014939a298a001b82874107781d9cee9760e4f644c5e8b304d5a81c0010c69940d82850484aa50992bed8d2fb0',
+        t2PublicKey: '0x4ad9a47542c3516c789c65eafa8fab95fc096bfe62b5fa4ed2badaae322f5823'
+      },
+      {
+        ethAddress: '0x51b78DfDF4Afd4566E76A84a7cA85861F9140439',
+        ethUncompressedPublicKey: '0x044f10471a160990344bb83156a4d239574eff14bfba903a976eb4c85a7827d7d07b6d5f6f473803cd4ebfb265d3227b9ef77c1aa4744629f5ad06a7bd05678ed2',
+        t2PublicKey: '0x3c9ded6d4b011e97c5767d7017dd720417682387a8f2510a986acc4cb5902902'
+      },
+      {
+        ethAddress: '0xbc3FD1b1c213D6EB62D2aacC828e3cFc1D424B0B',
+        ethUncompressedPublicKey: '0x044b0297f8d8a434e4ce418c4705e27ba6ea75386a494dc78f1e951b5c5ee3226f58dee02a35f106511afa2bb653604a85590ce7343b71026edfe0cc49d7509fad',
+        t2PublicKey: '0xe65ba7f6f9f09e582e13f3e566eddff9fffaae7252ce4c4ffa5eeb28d3801d7b'
+      }
+    ]
   },
   testnet: {
     owner: '0xeA2B5E2C6dc45C4266Fc45faaB2C26b1610C57D3',
@@ -21,11 +47,7 @@ const bridgeConfig = {
     usdc: '0xBe023028df4Ae3D48A2dd4850f798654f014A327',
     usdt: '0x49856A1AEB036a25c759187F807EE97938A2a034',
     weth: '0xA550f62cE06A2Cccf763FeBAc3e5f050E06425C1',
-    relayers: [
-      '0xe7BBa60d3352CbAa7e1e1A7487183c68B82A35b2',
-      '0xdf2918dE413E2Cd1C3dbb972c8377C063E6F092c',
-      '0x40aF08546D41E119db1f70744ef4bE485Be7Cb2A'
-    ],
+    relayers: ['0xe7BBa60d3352CbAa7e1e1A7487183c68B82A35b2', '0xdf2918dE413E2Cd1C3dbb972c8377C063E6F092c', '0x40aF08546D41E119db1f70744ef4bE485Be7Cb2A'],
     authors: [
       {
         ethAddress: '0x073411c96F59ef379DE620fd3226eA3f222af1b9',
@@ -65,11 +87,7 @@ const bridgeConfig = {
     usdc: '0xe7CEFa13a4645EB168F227f5908664A3C5dA0E15',
     usdt: '0x8A2C6d75b8d0a920bA68a707B1A205bcB9c9173F',
     weth: '0x1aEDb2026a192d439A06a0d0C7C6FB6735724bAB',
-    relayers: [
-      '0xCaf887dC7dB6B4b44D9a97e46998Ca4dB6f767Ea',
-      '0x29cB5A57D62bA22bbb6a5Efe3fD520F03c840291',
-      '0xA39239acB1E7faA1419482e767A1195b1f81F82c'
-    ],
+    relayers: ['0xCaf887dC7dB6B4b44D9a97e46998Ca4dB6f767Ea', '0x29cB5A57D62bA22bbb6a5Efe3fD520F03c840291', '0xA39239acB1E7faA1419482e767A1195b1f81F82c'],
     authors: [
       {
         ethAddress: '0xcc66EC55E0cdF70e1549beBE969e5988603Ef960',
