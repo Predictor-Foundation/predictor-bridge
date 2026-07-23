@@ -3,7 +3,7 @@ pragma solidity 0.8.35;
 
 import './interfaces/IChainalysis.sol';
 import './interfaces/IChainlinkV3Aggregator.sol';
-import './interfaces/IPredictorBridge.sol';
+import './interfaces/IPRDCTRBridge.sol';
 import './interfaces/IUniswapV3Callback.sol';
 import './interfaces/IUniswapV3Pool.sol';
 import './interfaces/IWETH9.sol';
@@ -16,14 +16,14 @@ import '@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol';
 import '@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol';
 import '@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol';
 
-contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback, Ownable2StepUpgradeable, PausableUpgradeable, ReentrancyGuardTransient, UUPSUpgradeable {
+contract PRDCTRBridge is IPRDCTRBridge, Initializable, IUniswapV3Callback, Ownable2StepUpgradeable, PausableUpgradeable, ReentrancyGuardTransient, UUPSUpgradeable {
   using SafeERC20 for IERC20;
 
   // ============================================================
   // Constants
   // ============================================================
 
-  string private constant NAME = 'PredictorBridge';
+  string private constant NAME = 'PRDCTRBridge';
   string private constant EIP712_PREFIX = '\x19\x01';
 
   bytes32 private constant NAME_HASH = keccak256(bytes(NAME));
@@ -207,7 +207,7 @@ contract PredictorBridge is IPredictorBridge, Initializable, IUniswapV3Callback,
   /**
    * @dev Claims funds for the recipient specified in a valid lower proof.
    * No Ethereum-level sanctions check applied here, exit eligibility is
-   * controlled on the Predictor network prior to lower proof generation.
+   * controlled on the PRDCTR network prior to lower proof generation.
    *
    * @param lowerProof Encoded lower data followed by author confirmations.
    */

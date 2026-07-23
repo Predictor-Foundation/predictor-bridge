@@ -233,7 +233,7 @@ async function deployBridgeOnFork(ethers, networkHelpers) {
   }
 
   const [owner] = await ethers.getSigners();
-  const PredictorBridge = await ethers.getContractFactory('PredictorBridge');
+  const PRDCTRBridge = await ethers.getContractFactory('PRDCTRBridge');
   const ERC1967Proxy = await ethers.getContractFactory('ERC1967Proxy');
 
   const authors = [];
@@ -243,7 +243,7 @@ async function deployBridgeOnFork(ethers, networkHelpers) {
     authors.push(authorFromWallet(ethers, wallet));
   }
 
-  const implementation = await PredictorBridge.deploy(cfg.feed, cfg.pool, cfg.sanctions, cfg.prd, cfg.usdc, cfg.usdt, cfg.weth);
+  const implementation = await PRDCTRBridge.deploy(cfg.feed, cfg.pool, cfg.sanctions, cfg.prd, cfg.usdc, cfg.usdt, cfg.weth);
   await implementation.waitForDeployment();
 
   const initArgs = [authors.map(a => a.t1Address), authors.map(a => a.t1PubKeyLHS), authors.map(a => a.t1PubKeyRHS), authors.map(a => a.t2PubKey), owner.address];
@@ -251,7 +251,7 @@ async function deployBridgeOnFork(ethers, networkHelpers) {
   const proxy = await ERC1967Proxy.deploy(implementation.target, initData);
   await proxy.waitForDeployment();
 
-  const bridge = PredictorBridge.attach(proxy.target);
+  const bridge = PRDCTRBridge.attach(proxy.target);
   return { bridge, authors, implementationAddress: implementation.target };
 }
 

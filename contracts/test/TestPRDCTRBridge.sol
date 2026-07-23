@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.35;
 
-import '../PredictorBridge.sol';
+import '../PRDCTRBridge.sol';
 
 /**
- * @dev Non-mainnet variant of PredictorBridge used by dev/testnet deployments.
+ * @dev Non-mainnet variant of PRDCTRBridge used by dev/testnet deployments.
  * Core bridge behaviour is inherited unchanged; this implementation cannot be deployed on Ethereum mainnet.
  *
  * The test bridge adds owner-gated reset functions and an initializer variant that registers the
  * configured relayers during initialization. This keeps the audited
  * production bridge initializer unchanged while still supporting non-deployer owners on test networks.
  */
-contract TestPredictorBridge is PredictorBridge {
+contract TestPRDCTRBridge is PRDCTRBridge {
   event LogReset(uint32 indexed nonce);
   event LogAuthorsReset();
 
@@ -20,21 +20,13 @@ contract TestPredictorBridge is PredictorBridge {
 
   error TestBridgeNotForUseOnMainnet();
 
-  constructor(
-    address feed,
-    address pool,
-    address sanctions,
-    address prd,
-    address usdc,
-    address usdt,
-    address weth
-  ) PredictorBridge(feed, pool, sanctions, prd, usdc, usdt, weth) {
+  constructor(address feed, address pool, address sanctions, address prd, address usdc, address usdt, address weth) PRDCTRBridge(feed, pool, sanctions, prd, usdc, usdt, weth) {
     if (block.chainid == ETHEREUM_MAINNET_CHAIN_ID) revert TestBridgeNotForUseOnMainnet();
   }
 
   /**
    * @dev Initialises the test bridge, seeds authors, registers relayers, and assigns ownership.
-   * This intentionally does not alter PredictorBridge's audited initializer.
+   * This intentionally does not alter PRDCTRBridge's audited initializer.
    *
    * @param t1Addresses Initial author T1 addresses.
    * @param t1PubKeysLHS Left-hand 32 bytes of each uncompressed T1 public key.

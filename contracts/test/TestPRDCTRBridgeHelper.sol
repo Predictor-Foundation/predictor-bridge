@@ -7,7 +7,7 @@ import '@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol';
 import '@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol';
 import '@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol';
 
-contract TestPredictorBridgeHelper is Initializable, IChainalysis, Ownable2StepUpgradeable, UUPSUpgradeable {
+contract TestPRDCTRBridgeHelper is Initializable, IChainalysis, Ownable2StepUpgradeable, UUPSUpgradeable {
   int256 public constant CHAINLINK_ANSWER = 200000000000000; // $5000 per ETH
   uint80 public constant CHAINLINK_ROUND_ID = 1;
 
