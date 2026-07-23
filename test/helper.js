@@ -284,10 +284,10 @@ async function createLowerProof(bridge, token, amount, recipient, t2Sender = ran
   return [ethers.concat([lowerDataBytes, ethers.concat(confirmations)]), id, t2Sender, t2Timestamp];
 }
 
-async function deployFixture({ numAuthors = 6, contractName = 'PredictorBridge' } = {}) {
+async function deployFixture({ numAuthors = 6, contractName = 'PRDCTRBridge' } = {}) {
   const [owner] = accounts;
 
-  const PredictorBridge = await ethers.getContractFactory(contractName);
+  const PRDCTRBridge = await ethers.getContractFactory(contractName);
   const ERC1967Proxy = await ethers.getContractFactory('ERC1967Proxy');
 
   const Feed = await ethers.getContractFactory('MockChainlinkV3Aggregator');
@@ -299,7 +299,7 @@ async function deployFixture({ numAuthors = 6, contractName = 'PredictorBridge' 
 
   const feed = await Feed.deploy();
   const sanctions = await Sanctions.deploy();
-  const prd = await PermitToken.deploy('Predictor', 'PRD', 10, owner.address, 1_000_000_000_000_000_000_000n);
+  const prd = await PermitToken.deploy('PRDCTR', 'PRD', 10, owner.address, 1_000_000_000_000_000_000_000n);
   const token = await Token.deploy('Token', 'TOK', 18, owner.address, 1_000_000_000_000_000_000_000_000_000n);
   const permitToken = await PermitToken.deploy('Permit', 'PTOK', 18, owner.address, 1_000_000_000_000_000_000_000_000_000n);
   const usdc = await PermitToken.deploy('USD Coin', 'USDC', 6, owner.address, 10_000_000_000_000n);
@@ -311,7 +311,7 @@ async function deployFixture({ numAuthors = 6, contractName = 'PredictorBridge' 
   await weth.deposit({ value: ethers.parseEther('100') });
   await weth.transfer(pool.target, ethers.parseEther('100'));
 
-  const implementation = await PredictorBridge.deploy(feed.target, pool.target, sanctions.target, prd.target, usdc.target, usdt.target, weth.target);
+  const implementation = await PRDCTRBridge.deploy(feed.target, pool.target, sanctions.target, prd.target, usdc.target, usdt.target, weth.target);
 
   await implementation.waitForDeployment();
 
@@ -325,16 +325,16 @@ async function deployFixture({ numAuthors = 6, contractName = 'PredictorBridge' 
     owner.address
   ];
 
-  const initFunction = contractName === 'TestPredictorBridge' ? 'initialize(address[],bytes32[],bytes32[],bytes32[],address,address[])' : 'initialize';
+  const initFunction = contractName === 'TestPRDCTRBridge' ? 'initialize(address[],bytes32[],bytes32[],bytes32[],address,address[])' : 'initialize';
 
-  const finalInitArgs = contractName === 'TestPredictorBridge' ? [...initArgs, []] : initArgs;
+  const finalInitArgs = contractName === 'TestPRDCTRBridge' ? [...initArgs, []] : initArgs;
 
   const initData = implementation.interface.encodeFunctionData(initFunction, finalInitArgs);
 
   const proxy = await ERC1967Proxy.deploy(implementation.target, initData);
   await proxy.waitForDeployment();
 
-  const bridge = PredictorBridge.attach(proxy.target);
+  const bridge = PRDCTRBridge.attach(proxy.target);
 
   return {
     accounts,

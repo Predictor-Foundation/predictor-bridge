@@ -1,6 +1,6 @@
 import { MIN_AUTHORS, deployFixture, expect, getAccounts, getAuthors, getEthers, init, randomBytes32 } from '../helper.js';
 
-describe('PredictorBridge owner tests', function () {
+describe('PRDCTRBridge owner tests', function () {
   let ethers;
   let owner;
   let otherAccount;
@@ -87,15 +87,15 @@ describe('PredictorBridge owner tests', function () {
 
   describe('initialization', function () {
     async function deployAndExpectRevert({ initArgs, constructorArgs, error }) {
-      const PredictorBridge = await ethers.getContractFactory('PredictorBridge');
+      const PRDCTRBridge = await ethers.getContractFactory('PRDCTRBridge');
       await expect(
-        PredictorBridge.deploy(...constructorArgs).then(async implementation => {
+        PRDCTRBridge.deploy(...constructorArgs).then(async implementation => {
           await implementation.waitForDeployment();
           const ERC1967Proxy = await ethers.getContractFactory('ERC1967Proxy');
           const initData = implementation.interface.encodeFunctionData('initialize', initArgs);
           return ERC1967Proxy.deploy(implementation.target, initData);
         })
-      ).to.be.revertedWithCustomError(PredictorBridge, error);
+      ).to.be.revertedWithCustomError(PRDCTRBridge, error);
     }
 
     function baseInitValues() {
@@ -137,14 +137,14 @@ describe('PredictorBridge owner tests', function () {
 
     it('rejects missing owner', async () => {
       const v = baseInitValues();
-      const PredictorBridge = await ethers.getContractFactory('PredictorBridge');
-      const implementation = await PredictorBridge.deploy(...v.constructorArgs);
+      const PRDCTRBridge = await ethers.getContractFactory('PRDCTRBridge');
+      const implementation = await PRDCTRBridge.deploy(...v.constructorArgs);
       await implementation.waitForDeployment();
 
       const ERC1967Proxy = await ethers.getContractFactory('ERC1967Proxy');
       const initData = implementation.interface.encodeFunctionData('initialize', [v.t1Addresses, v.t1PubKeysLHS, v.t1PubKeysRHS, v.t2PubKeys, ethers.ZeroAddress]);
 
-      await expect(ERC1967Proxy.deploy(implementation.target, initData)).to.be.revertedWithCustomError(PredictorBridge, 'OwnableInvalidOwner');
+      await expect(ERC1967Proxy.deploy(implementation.target, initData)).to.be.revertedWithCustomError(PRDCTRBridge, 'OwnableInvalidOwner');
     });
 
     it('rejects address / pubkey mismatch', async () => {
@@ -244,7 +244,7 @@ describe('PredictorBridge owner tests', function () {
 
   describe('upgrade auth', function () {
     it('allows owner upgrade', async () => {
-      const Upgraded = await ethers.getContractFactory('MockPredictorBridgeUpgrade');
+      const Upgraded = await ethers.getContractFactory('MockPRDCTRBridgeUpgrade');
 
       const newImpl = await Upgraded.deploy(feed.target, pool.target, sanctions.target, prd.target, usdc.target, usdt.target, weth.target);
       await newImpl.waitForDeployment();
@@ -252,11 +252,11 @@ describe('PredictorBridge owner tests', function () {
       await tx.wait();
 
       const upgradedBridge = Upgraded.attach(bridge.target);
-      expect(await upgradedBridge.newFunction()).to.equal('PredictorBridge upgraded');
+      expect(await upgradedBridge.newFunction()).to.equal('PRDCTRBridge upgraded');
     });
 
     it('rejects non-owner upgrade', async () => {
-      const Upgraded = await ethers.getContractFactory('MockPredictorBridgeUpgrade');
+      const Upgraded = await ethers.getContractFactory('MockPRDCTRBridgeUpgrade');
       const newImpl = await Upgraded.deploy(feed.target, pool.target, sanctions.target, prd.target, usdc.target, usdt.target, weth.target);
       await newImpl.waitForDeployment();
 

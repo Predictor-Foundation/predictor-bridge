@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.35;
 
-import '../../contracts/interfaces/IPredictorBridge.sol';
+import '../../contracts/interfaces/IPRDCTRBridge.sol';
 import '@openzeppelin/contracts/token/ERC20/ERC20.sol';
 
 contract MockReentrantToken is ERC20 {
@@ -16,7 +16,7 @@ contract MockReentrantToken is ERC20 {
   }
 
   ReentryPoint private _reentryPoint;
-  IPredictorBridge private _bridge;
+  IPRDCTRBridge private _bridge;
 
   bytes private _proof;
   address private _token;
@@ -27,7 +27,7 @@ contract MockReentrantToken is ERC20 {
   bytes32 private _r;
   bytes32 private _s;
 
-  constructor(IPredictorBridge bridge) ERC20('R20', 'R20') {
+  constructor(IPRDCTRBridge bridge) ERC20('R20', 'R20') {
     _mint(msg.sender, 100000000000000000);
     _bridge = bridge;
   }

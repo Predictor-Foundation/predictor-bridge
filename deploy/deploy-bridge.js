@@ -22,14 +22,14 @@ async function main() {
   console.log(`Deployer: ${deployer.address}`);
   console.log(`Env: ${env}`);
   console.log(`Network: ${networkName}`);
-  console.log('Contract: PredictorBridge');
+  console.log('Contract: PRDCTRBridge');
 
-  const bridge = await deployVerifiedProxy(hre, ethers, networkName, 'PredictorBridge', bridgeArgs, initArgs, 'PredictorBridge');
+  const bridge = await deployVerifiedProxy(hre, ethers, networkName, 'PRDCTRBridge', bridgeArgs, initArgs, 'PRDCTRBridge');
 
   const afterBalance = await ethers.provider.getBalance(deployer.address);
   printBalances(ethers, beforeBalance, afterBalance);
 
-  console.log(`\nPredictorBridge: ${bridge.proxyAddress}`);
+  console.log(`\nPRDCTRBridge: ${bridge.proxyAddress}`);
   console.log(`Implementation: ${bridge.implementationAddress}`);
   console.log('\nDone.');
 }

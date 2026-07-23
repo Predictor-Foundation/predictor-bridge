@@ -1,7 +1,7 @@
 {
   "name": "predictor-bridge",
   "version": "1.0.0",
-  "description": "Ethereum bridging contract for Predictor Network",
+  "description": "Ethereum bridging contract for PRDCTR Network",
   "author": "Predictor Foundation",
   "license": "MIT",
   "scripts": {

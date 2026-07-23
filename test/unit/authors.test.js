@@ -19,7 +19,7 @@ import {
   toAuthorAccount
 } from '../helper.js';
 
-describe('PredictorBridge author tests', function () {
+describe('PRDCTRBridge author tests', function () {
   let ethers;
   let owner;
   let bridge;

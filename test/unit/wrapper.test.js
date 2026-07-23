@@ -1,6 +1,6 @@
 import { createLowerProof, createTreeAndPublishRoot, deployFixture, expect, getAccounts, getAuthors, getEthers, init, toAuthorAccount } from '../helper.js';
 
-describe('TestPredictorBridge', function () {
+describe('TestPRDCTRBridge', function () {
   let ethers;
   let owner;
   let user;
@@ -13,7 +13,7 @@ describe('TestPredictorBridge', function () {
     ethers = getEthers();
     [owner, user] = getAccounts();
     originalAuthors = getAuthors().slice(0, 5);
-    ({ bridge, token } = await deployFixture({ numAuthors: 5, contractName: 'TestPredictorBridge' }));
+    ({ bridge, token } = await deployFixture({ numAuthors: 5, contractName: 'TestPRDCTRBridge' }));
   });
 
   it('resetState clears per-run bridge state and bumps the nonce', async () => {
