@@ -15,8 +15,8 @@ import {
   ZERO_ADDRESS
 } from './helper.js';
 
-const TEST_BRIDGE_CONTRACT = 'TestPredictorBridge';
-const TEST_HELPER_CONTRACT = 'TestPredictorBridgeHelper';
+const TEST_BRIDGE_CONTRACT = 'TestPRDCTRBridge';
+const TEST_HELPER_CONTRACT = 'TestPRDCTRBridgeHelper';
 const TEST_BRIDGE_INITIALIZER = 'initialize(address[],bytes32[],bytes32[],bytes32[],address,address[])';
 const TEST_HELPER_INITIALIZER = 'initialize(address)';
 
@@ -135,7 +135,7 @@ async function main() {
     symbol: 'pPRD',
     deploy: () =>
       deployTestERC20Permit(hre, ethers, {
-        name: 'Predictor mock PRD',
+        name: 'PRDCTR test PRD',
         symbol: 'pPRD',
         decimals: 10,
         owner: cfg.owner,
@@ -147,7 +147,7 @@ async function main() {
     symbol: 'pTOK',
     deploy: () =>
       deployTestERC20(hre, ethers, {
-        name: 'Predictor mock TOK',
+        name: 'PRDCTR test TOK',
         symbol: 'pTOK',
         decimals: 18,
         owner: cfg.owner,
@@ -159,7 +159,7 @@ async function main() {
     symbol: 'pUSDC',
     deploy: () =>
       deployTestERC20Permit(hre, ethers, {
-        name: 'Predictor mock USDC',
+        name: 'PRDCTR test USDC',
         symbol: 'pUSDC',
         decimals: 6,
         owner: cfg.owner,
@@ -171,7 +171,7 @@ async function main() {
     symbol: 'pUSDT',
     deploy: () =>
       deployTestERC20(hre, ethers, {
-        name: 'Predictor mock USDT',
+        name: 'PRDCTR test USDT',
         symbol: 'pUSDT',
         decimals: 6,
         owner: cfg.owner,

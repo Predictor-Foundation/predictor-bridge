@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.35;
 
-interface IPredictorBridge {
+interface IPRDCTRBridge {
   struct LowerCheck {
     address token;
     uint256 amount;

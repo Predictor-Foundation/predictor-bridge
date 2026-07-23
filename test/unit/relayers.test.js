@@ -13,7 +13,7 @@ import {
   randomBytes32
 } from '../helper.js';
 
-describe('PredictorBridge relayer tests', function () {
+describe('PRDCTRBridge relayer tests', function () {
   let ethers;
   let owner;
   let otherAccount;

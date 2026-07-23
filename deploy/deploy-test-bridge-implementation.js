@@ -19,20 +19,20 @@ async function main() {
   console.log(`Deployer: ${deployer.address}`);
   console.log(`Env: ${env}`);
   console.log(`Network: ${networkName}`);
-  console.log('Contract: TestPredictorBridge');
+  console.log('Contract: TestPRDCTRBridge');
   console.log('Deploying: implementation');
 
-  const Bridge = await ethers.getContractFactory('TestPredictorBridge');
+  const Bridge = await ethers.getContractFactory('TestPRDCTRBridge');
   const implementation = await Bridge.deploy(...bridgeArgs);
   await implementation.waitForDeployment();
   const implementationAddress = await implementation.getAddress();
 
-  await verifyContract(hre, implementationAddress, bridgeArgs, 'TestPredictorBridge implementation');
+  await verifyContract(hre, implementationAddress, bridgeArgs, 'TestPRDCTRBridge implementation');
 
   const afterBalance = await ethers.provider.getBalance(deployer.address);
   printBalances(ethers, beforeBalance, afterBalance);
 
-  console.log(`\nNew TestPredictorBridge Implementation: ${implementationAddress}`);
+  console.log(`\nNew TestPRDCTRBridge Implementation: ${implementationAddress}`);
   console.log('\nDone.');
 }
 

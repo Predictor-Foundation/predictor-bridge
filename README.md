@@ -1,30 +1,30 @@
-# Predictor Bridge
+# PRDCTR Bridge
 
-Upgradeable Ethereum bridge contract for moving ERC-20 assets between Ethereum and Predictor Network.
+Upgradeable Ethereum bridge contract for moving ERC-20 assets between Ethereum and PRDCTR Network.
 
-The production bridge is `PredictorBridge`. Dev and testnet deployments use `TestPredictorBridge`, a non-mainnet wrapper around the audited bridge that adds test reset helpers and registers relayers during initialization without changing the production contract.
+The production bridge is `PRDCTRBridge`. Dev and testnet deployments use `TestPRDCTRBridge`, a non-mainnet wrapper around the audited bridge that adds test reset helpers and registers relayers during initialization without changing the production contract.
 
 ## Overview
 
 The bridge operates in two directions:
 
-- **Lift**: tokens are transferred into the bridge on Ethereum and represented on Predictor Network for the selected T2 recipient.
-- **Lower**: proof of token burn on Predictor Network is supplied to the bridge, which releases the corresponding tokens on Ethereum.
+- **Lift**: tokens are transferred into the bridge on Ethereum and represented on PRDCTR Network for the selected T2 recipient.
+- **Lower**: proof of token burn on PRDCTR Network is supplied to the bridge, which releases the corresponding tokens on Ethereum.
 
-The bridge is secured by a threshold of Predictor Network authors, who collectively approve author set changes, publish transaction checkpoints as Merkle roots, and authorise token releases back to Ethereum.
+The bridge is secured by a threshold of PRDCTR Network authors, who collectively approve author set changes, publish transaction checkpoints as Merkle roots, and authorise token releases back to Ethereum.
 
 ## Features
 
 - UUPS-upgradeable bridge deployed behind an `ERC1967Proxy`
 - Author-managed threshold confirmation model
-- ERC-20 lifts and lowers between Ethereum and Predictor Network
+- ERC-20 lifts and lowers between Ethereum and PRDCTR Network
 - ERC-2612 permit-based lifting for supported tokens
 - PRD-specific permit lifting via `permitLiftPRD`
 - Prediction-market lifts for USDC / USDT
 - Sponsored USDC lifts and lowers through registered relayers
 - Chainalysis sanctions checks on supported user entrypoints
-- Mainnet-only deployment path for `PredictorBridge`
-- Dev/testnet deployment path using `TestPredictorBridge` and `TestPredictorBridgeHelper`
+- Mainnet-only deployment path for `PRDCTRBridge`
+- Dev/testnet deployment path using `TestPRDCTRBridge` and `TestPRDCTRBridgeHelper`
 
 ## Lift methods
 
@@ -121,19 +121,19 @@ Common fields:
 | `usdc`      | USDC token address                                |
 | `usdt`      | USDT token address                                |
 | `weth`      | WETH-compatible contract address                  |
-| `authors`   | Initial Predictor Network author set              |
+| `authors`   | Initial PRDCTR Network author set                 |
 
 Dev/testnet also use:
 
 | Field      | Purpose                                                 |
 | ---------- | ------------------------------------------------------- |
-| `bridge`   | Deployed `TestPredictorBridge` proxy address            |
-| `tok`      | Extra mock ERC-20 token used for testing non-core lifts |
+| `bridge`   | Deployed `TestPRDCTRBridge` proxy address               |
+| `tok`      | Extra test ERC-20 token used for testing non-core lifts |
 | `relayers` | Initial relayer set                                     |
 
 For mainnet, all dependencies must be real production addresses and `owner` and `authors` must be populated before deployment.
 
-For dev/testnet, `deploy-test-bridge.js` is config-driven. It deploys any missing mock tokens, helper, or test bridge, then writes the new addresses back to `bridge.config.js`.
+For dev/testnet, `deploy-test-bridge.js` is config-driven. It deploys any missing test tokens, helper, or test bridge, then writes the new addresses back to `bridge.config.js`.
 
 Also for dev/testnet the following fields all boil down to a single test contract:
 
@@ -142,7 +142,7 @@ Also for dev/testnet the following fields all boil down to a single test contrac
 - `sanctions`
 - `weth`
 
-Therefore these must either all be empty/zero or all contain the same `TestPredictorBridgeHelper` proxy address.
+Therefore these must either all be empty/zero or all contain the same `TestPRDCTRBridgeHelper` proxy address.
 
 ## Scripts
 
@@ -191,26 +191,26 @@ npm run deploy:test-bridge:testnet
 
 The script deploys only what is missing from `bridge.config.js`:
 
-- `TestERC20Permit` PRD mock, if `prd` is empty/zero
-- `TestERC20` TOK mock, if `tok` is empty/zero
-- `TestERC20Permit` USDC mock, if `usdc` is empty/zero
-- `TestERC20` USDT mock, if `usdt` is empty/zero
-- `TestPredictorBridgeHelper` implementation/proxy, if `feed/pool/sanctions/weth` are empty/zero
-- `TestPredictorBridge` implementation/proxy, if `bridge` is empty/zero
+- `TestERC20Permit` Test PRD, if `prd` is empty/zero
+- `TestERC20` Test TOK, if `tok` is empty/zero
+- `TestERC20Permit` Test USDC, if `usdc` is empty/zero
+- `TestERC20` Test USDT, if `usdt` is empty/zero
+- `TestPRDCTRBridgeHelper` implementation/proxy, if `feed/pool/sanctions/weth` are empty/zero
+- `TestPRDCTRBridge` implementation/proxy, if `bridge` is empty/zero
 
 It then:
 
-- initializes `TestPredictorBridge` with authors, relayers, and owner from config
+- initializes `TestPRDCTRBridge` with authors, relayers, and owner from config
 - initializes the helper's bridge address with `helper.initBridge(bridgeProxy)` if needed
 - verifies deployed contracts on Etherscan
 - submits the Etherscan proxy-link request
 - writes the resulting addresses back to `bridge.config.js`
 
-`TestPredictorBridge` cannot be deployed on Ethereum mainnet because its constructor reverts on chain id `1`.
+`TestPRDCTRBridge` cannot be deployed on Ethereum mainnet because its constructor reverts on chain id `1`.
 
 ### Mainnet bridge
 
-Mainnet deployment is intentionally separate and only deploys the audited `PredictorBridge` contract.
+Mainnet deployment is intentionally separate and only deploys the audited `PRDCTRBridge` contract.
 
 Before running mainnet deployment:
 
@@ -231,7 +231,7 @@ The script will reject missing zero-address dependencies and an empty author set
 
 ## Test bridge helper
 
-`TestPredictorBridgeHelper` is a Sepolia helper used by dev/testnet bridge deployments.
+`TestPRDCTRBridgeHelper` is a Sepolia helper used by dev/testnet bridge deployments.
 
 It provides:
 
@@ -248,7 +248,7 @@ Only the configured bridge can call the helper's swap/withdraw paths.
 
 ## Test bridge
 
-`TestPredictorBridge` is a non-mainnet subclass of the production bridge used for both `dev` and `testnet`.
+`TestPRDCTRBridge` is a non-mainnet subclass of the production bridge used for both `dev` and `testnet`.
 
 It inherits core bridge behaviour and adds:
 
@@ -258,7 +258,7 @@ It inherits core bridge behaviour and adds:
 
 Owner is preserved across reset functions. Relayer state is intentionally not reset by `resetState`; use `registerRelayer` and `deregisterRelayer` to manage relayers after deployment.
 
-Do not use `TestPredictorBridge` on mainnet. The contract enforces this by reverting in the constructor when `block.chainid == 1`.
+Do not use `TestPRDCTRBridge` on mainnet. The contract enforces this by reverting in the constructor when `block.chainid == 1`.
 
 ## Implementation-only deployments
 

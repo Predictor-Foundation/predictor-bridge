@@ -370,7 +370,7 @@ function getConfiguredTestBridgeHelperFromConfig(cfg, env = 'test environment') 
   const uniqueValues = new Set(values.map(value => value.toLowerCase()));
 
   if (uniqueValues.size !== 1) {
-    throw new Error(`Invalid ${env} helper config. feed, pool, sanctions, and weth must all point to the same TestPredictorBridgeHelper.`);
+    throw new Error(`Invalid ${env} helper config. feed, pool, sanctions, and weth must all point to the same TestPRDCTRBridgeHelper.`);
   }
 
   return values[0];
