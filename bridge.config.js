@@ -1,6 +1,6 @@
 const bridgeConfig = {
   mainnet: {
-    owner: '',
+    owner: '0xe7bB721a15A75dBF144445C96651c95FcEE3Dc2B',
     feed: '0x986b5E1e1755e3C2440e960477f25201B0a8bbD4',
     pool: '0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640',
     sanctions: '0x40C57923924B5c5c5455c48D93317139ADDaC8fb',
@@ -8,7 +8,33 @@ const bridgeConfig = {
     usdc: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
     usdt: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
     weth: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
-    authors: []
+    authors: [
+      {
+        ethAddress: '0x041442A53751317182694cCF4DC9997D61E0f173',
+        ethUncompressedPublicKey: '0x04be2ddaed0fbbf5c60577f7f65c50bdfd6f1ffc16c469278d40f0949d4aa9ef87c6053e8c4b047df549b8454f843451363218dbca9ed189a62cd66300b4654ffa',
+        t2PublicKey: '0x546b4559d91c7c28f96c186f836c0e40a762604817b15a376cfd20b9e9d18436'
+      },
+      {
+        ethAddress: '0x8c350e49f2fbFe6Ac8058f85E0057eFf090D1559',
+        ethUncompressedPublicKey: '0x04e0fa13fb03c30accc1944a86434f84fe183ed7355fc2240ff7d333b1e83ef711cdbcfcffd5b6185848887601167c0176fc335088e704261a9a1cc6e7978ccaac',
+        t2PublicKey: '0x4acdb77de3e60c034ff3015809934596ac52ec56fb634a4f1c6bec9db9e9940d'
+      },
+      {
+        ethAddress: '0x12fD6309bB10da94AE599D4b2640fDD4b9f04e9f',
+        ethUncompressedPublicKey: '0x04a679e59b9b472e547c3eef5a9f4ad646cda937014939a298a001b82874107781d9cee9760e4f644c5e8b304d5a81c0010c69940d82850484aa50992bed8d2fb0',
+        t2PublicKey: '0x4ad9a47542c3516c789c65eafa8fab95fc096bfe62b5fa4ed2badaae322f5823'
+      },
+      {
+        ethAddress: '0x51b78DfDF4Afd4566E76A84a7cA85861F9140439',
+        ethUncompressedPublicKey: '0x044f10471a160990344bb83156a4d239574eff14bfba903a976eb4c85a7827d7d07b6d5f6f473803cd4ebfb265d3227b9ef77c1aa4744629f5ad06a7bd05678ed2',
+        t2PublicKey: '0x3c9ded6d4b011e97c5767d7017dd720417682387a8f2510a986acc4cb5902902'
+      },
+      {
+        ethAddress: '0xbc3FD1b1c213D6EB62D2aacC828e3cFc1D424B0B',
+        ethUncompressedPublicKey: '0x044b0297f8d8a434e4ce418c4705e27ba6ea75386a494dc78f1e951b5c5ee3226f58dee02a35f106511afa2bb653604a85590ce7343b71026edfe0cc49d7509fad',
+        t2PublicKey: '0xe65ba7f6f9f09e582e13f3e566eddff9fffaae7252ce4c4ffa5eeb28d3801d7b'
+      }
+    ]
   },
   testnet: {
     owner: '0xeA2B5E2C6dc45C4266Fc45faaB2C26b1610C57D3',

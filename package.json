@@ -13,6 +13,7 @@
     "test": "npx hardhat test",
     "gas": "npx hardhat test --gas-stats",
     "deploy:bridge:mainnet": "cross-env BRIDGE_ENV=mainnet npx hardhat run deploy/deploy-bridge.js --network mainnet",
+    "deploy:bridge:testnet": "cross-env BRIDGE_ENV=testnet npx hardhat run deploy/deploy-bridge.js --network sepolia",
     "deploy:bridge-implementation:mainnet": "cross-env BRIDGE_ENV=mainnet npx hardhat run deploy/deploy-bridge-implementation.js --network mainnet",
     "deploy:bridge-implementation:testnet": "cross-env BRIDGE_ENV=testnet npx hardhat run deploy/deploy-bridge-implementation.js --network sepolia",
     "deploy:test-bridge:dev": "cross-env BRIDGE_ENV=dev npx hardhat run deploy/deploy-test-bridge.js --network sepolia",
@@ -26,10 +27,10 @@
     "@nomicfoundation/hardhat-toolbox-mocha-ethers": "^3.0.7",
     "cross-env": "^10.1.0",
     "dotenv": "^17.4.2",
-    "hardhat": "^3.9.0",
+    "hardhat": "3.11.1",
     "keccak256": "^1.0.6",
     "merkletreejs": "^0.6.0",
-    "prettier": "^3.9.4",
+    "prettier": "3.9.6",
     "prettier-plugin-solidity": "^2.3.1"
   },
   "dependencies": {

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import '../../contracts/interfaces/IUniswapV3Callback.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
