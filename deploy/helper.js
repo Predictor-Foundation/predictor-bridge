@@ -3,6 +3,7 @@ import { inspect } from 'node:util';
 import bridgeConfig from '../bridge.config.js';
 import { verifyContract as hardhatVerifyContract } from '@nomicfoundation/hardhat-verify/verify';
 
+const GAS_LIMIT_BUFFER_PERCENT = 20n;
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 const VALID_ENVS = ['dev', 'testnet', 'mainnet'];
 const TEST_HELPER_FIELDS = ['feed', 'pool', 'sanctions', 'weth'];
@@ -292,9 +293,52 @@ function printBalances(ethers, beforeBalance, afterBalance) {
   console.log(`Cost:           ${ethers.formatEther(spent)} ETH`);
 }
 
+async function deployWithEstimatedGasAndFees(ethers, Contract, constructorArgs = []) {
+  const signer = Contract.runner;
+
+  if (!signer || typeof signer.estimateGas !== 'function') {
+    throw new Error('Contract factory is not connected to a signer');
+  }
+
+  const unsignedTransaction = await Contract.getDeployTransaction(...constructorArgs);
+  const estimatedGas = await signer.estimateGas(unsignedTransaction);
+  const gasLimit = (estimatedGas * (100n + GAS_LIMIT_BUFFER_PERCENT)) / 100n;
+
+  const feeData = await ethers.provider.getFeeData();
+  let feeOverrides;
+
+  if (feeData.maxFeePerGas != null && feeData.maxPriorityFeePerGas != null) {
+    feeOverrides = {
+      maxFeePerGas: feeData.maxFeePerGas,
+      maxPriorityFeePerGas: feeData.maxPriorityFeePerGas
+    };
+  } else if (feeData.gasPrice != null) {
+    feeOverrides = {
+      gasPrice: feeData.gasPrice
+    };
+  } else {
+    throw new Error('Failed to retrieve deployment fee data');
+  }
+
+  console.log(`Estimated deployment gas: ${estimatedGas}`);
+  console.log(`Deployment gas limit:    ${gasLimit}`);
+
+  if ('maxFeePerGas' in feeOverrides) {
+    console.log(`Max fee:                 ${ethers.formatUnits(feeOverrides.maxFeePerGas, 'gwei')} gwei`);
+    console.log(`Priority fee:            ${ethers.formatUnits(feeOverrides.maxPriorityFeePerGas, 'gwei')} gwei`);
+  } else {
+    console.log(`Gas price:               ${ethers.formatUnits(feeOverrides.gasPrice, 'gwei')} gwei`);
+  }
+
+  return Contract.deploy(...constructorArgs, {
+    gasLimit,
+    ...feeOverrides
+  });
+}
+
 async function deployVerifiedContract(hre, ethers, contractName, constructorArgs, label) {
   const Contract = await ethers.getContractFactory(contractName);
-  const contract = await Contract.deploy(...constructorArgs);
+  const contract = await deployWithEstimatedGasAndFees(ethers, Contract, constructorArgs);
   await contract.waitForDeployment();
   const address = await contract.getAddress();
   await verifyContract(hre, address, constructorArgs, label);
@@ -315,20 +359,22 @@ async function deployTestERC20Permit(hre, ethers, { name, symbol, decimals, owne
 async function deployVerifiedProxy(hre, ethers, networkName, contractName, constructorArgs, initArgs, label, initFunction = 'initialize') {
   const Contract = await ethers.getContractFactory(contractName);
 
-  const implementation = await Contract.deploy(...constructorArgs);
+  console.log(`\nDeploying ${label} implementation...`);
+  const implementation = await deployWithEstimatedGasAndFees(ethers, Contract, constructorArgs);
   await implementation.waitForDeployment();
 
   const implementationAddress = await implementation.getAddress();
   const initData = Contract.interface.encodeFunctionData(initFunction, initArgs);
 
+  console.log(`\nDeploying ${label} proxy...`);
   const ERC1967Proxy = await ethers.getContractFactory('ERC1967Proxy');
-  const proxy = await ERC1967Proxy.deploy(implementationAddress, initData);
+  const proxyConstructorArgs = [implementationAddress, initData];
+  const proxy = await deployWithEstimatedGasAndFees(ethers, ERC1967Proxy, proxyConstructorArgs);
   await proxy.waitForDeployment();
 
   const proxyAddress = await proxy.getAddress();
-
   await verifyContract(hre, implementationAddress, constructorArgs, `${label} implementation`);
-  await verifyContract(hre, proxyAddress, [implementationAddress, initData], `${label} proxy`);
+  await verifyContract(hre, proxyAddress, proxyConstructorArgs, `${label} proxy`);
   await verifyProxyOnEtherscan(networkName, proxyAddress, implementationAddress);
 
   return {

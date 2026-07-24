@@ -5,10 +5,6 @@ async function main() {
   const env = getEnv();
   const { ethers, networkName } = await network.create();
 
-  if (env !== 'mainnet') {
-    throw new Error('deploy-bridge.js is mainnet-only. Use deploy-test-bridge.js for dev/testnet.');
-  }
-
   checkEnvMatchesNetwork(env, networkName);
   validateBridgeConfig(env);
   validateInitConfig(env);
