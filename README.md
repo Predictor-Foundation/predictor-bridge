@@ -30,12 +30,12 @@ The owner controls UUPS upgrades, pausing state, and relayer registrations.
 
 ### Lift Variants
 
-| Method                          | User transactions | Caller  | Token                     | T2 Recipient Format                                                |
+| Method                          | User transactions | Caller  | Token                     | T2 Destination            | T2 Recipient Format                    |
 | ------------------------------- | :---------------: | ------- | ------------------------- | ------------------------------------------------------------------ |
-| `lift`                          |         2         | User    | Any ERC-20                | PRDCTR base account | bytes32 `t2PubKey` argument                  |
-| `liftPRD`                       |         2         | User    | PRD                       | PRDCTR base account | bytes32 `t2PubKey` argument                  |
-| `permitLift`                    |         1         | User    | ERC-2612-compatible token | PRDCTR base account | bytes32 `t2PubKey` argument                  |
-| `permitLiftPRD`                 |         1         | User    | PRD                       | PRDCTR base account | bytes32 `t2PubKey` argument                  |
+| `lift`                          |         2         | User    | Any ERC-20                | PRDCTR base account       | bytes32 `t2PubKey` argument            |
+| `liftPRD`                       |         2         | User    | PRD                       | PRDCTR base account       | bytes32 `t2PubKey` argument            |
+| `permitLift`                    |         1         | User    | ERC-2612-compatible token | PRDCTR base account       | bytes32 `t2PubKey` argument            |
+| `permitLiftPRD`                 |         1         | User    | PRD                       | PRDCTR base account       | bytes32 `t2PubKey` argument            |
 | `predictionMarketLift`          |         2         | User    | USDC or USDT              | Prediction market account | Derived from caller's Ethereum address |
 | `predictionMarketPermitLift`    |         1         | User    | USDC                      | Prediction market account | Derived from caller's Ethereum address |
 | `predictionMarketRecipientLift` |         2         | User    | USDC or USDT              | Prediction market account | bytes32 `t2PubKey` argument            |
